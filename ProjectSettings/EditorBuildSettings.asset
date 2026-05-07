@@ -5,12 +5,15 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
     path: Assets/Scenes/Terada/TitleScene.unity
     guid: 03ffb0c7baadf704b8aee09f7af6254b
+  - enabled: 1
+    path: Assets/Scenes/Terada/RoomScene.unity
+    guid: 080d032a36ea61b41b1ce791b94d7555
+  - enabled: 1
+    path: Assets/Scenes/Terada/GameScene_T.unity
+    guid: f7e400874748be448a31ed3dffbe7632
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

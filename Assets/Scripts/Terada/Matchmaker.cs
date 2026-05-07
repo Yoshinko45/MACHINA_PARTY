@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.Linq;
 
+// メモ。エディターとアプリのふたつでできてるか確認してから次の作業に.
 public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
 {
     #region パブリック変数
@@ -20,6 +21,7 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private CanvasGroup LobbyPanel;
     [SerializeField] private RoomListUI roomListPrefab;
     [SerializeField] RectTransform roomItemHolder;
+    [SerializeField] NetworkPrefabRef playerPrefab;
     readonly List<RoomListUI> roomListUIs = new List<RoomListUI>();
     #endregion
 
@@ -27,6 +29,8 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
+
+        DontDestroyOnLoad(this);
     }
 
     void Start()
@@ -43,8 +47,12 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
     // ロビー入室処理.
     IEnumerator JoinLobbyRoutine()
     {
+        if (Runner != null)
+        {
+            Destroy(Runner.gameObject);
+        }
         Runner = Instantiate(networkRunnerPrefab);
-        Runner.AddCallbacks(this);
+        Runner.AddCallbacks(this);  // NetworkRunnnerのコールバック対象に追加.
         Task<StartGameResult> task = Runner.JoinSessionLobby(SessionLobby.Shared);
         while (!task.IsCompleted)
             yield return null;
@@ -74,7 +82,8 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
         {
             GameMode = GameMode.Host,
             SessionName = roomName,
-            PlayerCount = 4
+            PlayerCount = 4,
+            Scene = SceneRef.FromIndex(1)
         });
 
         while (!task.IsCompleted)
@@ -109,6 +118,7 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
         if (task.Result.Ok)
         {
             Debug.Log("Joined Room: " + roomName);
+            Runner.LoadScene("RoomScene");
         }
     }
 
@@ -144,16 +154,43 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
         return roomListUIs.FirstOrDefault(item => item.roomName == roomname) ?? TrackItem(Instantiate(roomListPrefab, roomItemHolder));
     }
 
+    IEnumerator RefreshUI()
+    {
+        yield return null;
+
+        if (PlayerListManager.Instance != null)
+            PlayerListManager.Instance.Refresh();
+    }
+
     #region INetworkRunnerCallbacks
-    void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
-    void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
+    void INetworkRunnerCallbacks.OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+
+        Debug.Log("PlayerJoined");
+    }
+    void INetworkRunnerCallbacks.OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    {
+        if (!runner.IsServer) { return; }
+        if (runner.TryGetPlayerObject(player, out var avator))
+        {
+            runner.Despawn(avator);
+        }
+
+        StartCoroutine(RefreshUI());
+    }
     void INetworkRunnerCallbacks.OnInput(NetworkRunner runner, NetworkInput input) { }
     void INetworkRunnerCallbacks.OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     void INetworkRunnerCallbacks.OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     void INetworkRunnerCallbacks.OnConnectedToServer(NetworkRunner runner) { }
-    void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        Debug.LogError("Disconnected: " + reason);
+    }
     void INetworkRunnerCallbacks.OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    void INetworkRunnerCallbacks.OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+    void INetworkRunnerCallbacks.OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        Debug.LogError("Connect Failed: " + reason);
+    }
     void INetworkRunnerCallbacks.OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     void INetworkRunnerCallbacks.OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
     {
@@ -180,7 +217,34 @@ public class Matchmaker : MonoBehaviour, INetworkRunnerCallbacks
 
     void INetworkRunnerCallbacks.OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     void INetworkRunnerCallbacks.OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
-    void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner) { }
+
+    // ここでアバター生成.
+    void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner)
+    {
+        if (!runner.IsServer) { return; }
+
+        foreach (var player in runner.ActivePlayers)
+        {
+            if (runner.TryGetPlayerObject(player, out _))
+                continue;
+
+            var rand = UnityEngine.Random.insideUnitCircle * 5f;
+            var spawnPos = new Vector3(rand.x, 2f, rand.y);
+
+            var avatar = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
+            runner.SetPlayerObject(player, avatar);
+        }
+
+        StartCoroutine(RefreshUI());
+
+        //var rand = UnityEngine.Random.insideUnitCircle * 5f;
+        //var spawnPos = new Vector3(rand.x, 2f, rand.y);
+
+        //var avatar = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
+        //runner.SetPlayerObject(player, avatar);
+
+        //StartCoroutine(RefreshUI());
+    }
     void INetworkRunnerCallbacks.OnSceneLoadStart(NetworkRunner runner) { }
     void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     void INetworkRunnerCallbacks.OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
