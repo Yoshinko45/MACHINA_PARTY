@@ -1,16 +1,20 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class test : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public float speed = 5f;
+
+    private Vector2 moveInput;
+
+    public void OnMove(InputValue value)
     {
-        
+        moveInput = value.Get<Vector2>();
     }
 
-    // Update is called once per frame
     void Update()
     {
-        Debug.Log("Fuckyou");
+        Vector3 move = new Vector3(moveInput.x, 0f, moveInput.y);
+        transform.position += move * speed * Time.deltaTime;
     }
 }
