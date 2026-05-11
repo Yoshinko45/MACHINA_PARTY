@@ -1,7 +1,7 @@
-using Fusion;
 using UnityEngine;
 using System.Collections.Generic;
 
+// プレイヤー一覧UI全体を管理.
 public class PlayerListManager : MonoBehaviour
 {
     public static PlayerListManager Instance;
@@ -23,7 +23,7 @@ public class PlayerListManager : MonoBehaviour
 
         items.Clear();
 
-        var runner = Matchmaker.Instance.Runner;
+        var runner = NetworkManager.Instance.Runner;
 
         foreach (var player in runner.ActivePlayers)
         {

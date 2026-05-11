@@ -18,6 +18,6 @@ public class PlayerListItem : MonoBehaviour
         if (player == null) return;
 
         nameText.text = player.PlayerName.ToString();
-        readyText.text = player.IsReady ? "Ready" : "Not Ready";
+        readyText.text = player.IsReady ? "Ready!!" : "Ready??";
     }
 }

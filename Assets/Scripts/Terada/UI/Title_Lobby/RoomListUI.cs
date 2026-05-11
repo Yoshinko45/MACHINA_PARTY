@@ -21,6 +21,6 @@ public class RoomListUI : MonoBehaviour
     // ƒ‹[ƒ€“üºˆ—.
     public void Join()
     {
-        Matchmaker.Instance.JoinRoom(roomName);
+        NetworkManager.Instance.JoinRoom(roomName);
     }
 }
