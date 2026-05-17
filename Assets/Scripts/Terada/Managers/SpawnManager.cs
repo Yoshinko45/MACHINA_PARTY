@@ -19,7 +19,7 @@ public class SpawnManager : MonoBehaviour
         NetworkManager.Instance.OnPlayerJoinedEvent -= SpawnPlayer;
         NetworkManager.Instance.OnPlayerLeftEvent -= RemovePlayer;
     }
-
+    
     void SpawnPlayer(PlayerRef player)
     {
         var runner = NetworkManager.Instance.Runner;
@@ -29,10 +29,10 @@ public class SpawnManager : MonoBehaviour
 
         Vector3 pos = Random.insideUnitSphere * 3f;
         pos.y = 1;
-        var playerObj = 
-            runner.Spawn(playerPrefab, Vector3.zero, Quaternion.identity, player);
+        var playerObj =
+            runner.Spawn(playerPrefab, Vector3.up * 2, Quaternion.identity, player);
         var car = 
-            runner.Spawn(testCarPrefab, Vector3.forward * 2,  Quaternion.identity, player);
+            runner.Spawn(testCarPrefab, Vector3.up * 1,  Quaternion.identity, player);
 
         runner.SetPlayerObject(player, playerObj);
 
