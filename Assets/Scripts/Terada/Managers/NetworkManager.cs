@@ -19,21 +19,27 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     [SerializeField] private NetworkRunner networkRunnerPrefab;
 
+    // イベント定義.
     public event Action<List<SessionInfo>> OnSessionListChanged;
     public event Action OnLobbyJoined;
     public event Action<PlayerRef> OnPlayerJoinedEvent;
     public event Action<PlayerRef> OnPlayerLeftEvent;
+
+    string currentRoom;
+    bool isReconnecting;
+    bool wasInRoom;
 
     void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
 
-        DontDestroyOnLoad(this);
+        DontDestroyOnLoad(gameObject);
     }
 
     public void JoinLobby()
     {
+        ConnectionManager.Instance.ConnectingLobby();
         StartCoroutine(JoinLobbyRoutine());
     }
 
@@ -41,11 +47,12 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (Runner != null)
         {
+            Runner.Shutdown();
             Destroy(Runner.gameObject);
         }
-        Runner = Instantiate(networkRunnerPrefab);
+        Runner = Instantiate(networkRunnerPrefab);  // NetworkRunner作成.
         Runner.AddCallbacks(this);  // NetworkRunnnerのコールバック対象に追加.
-        Task<StartGameResult> task = Runner.JoinSessionLobby(SessionLobby.Shared);
+        Task<StartGameResult> task = Runner.JoinSessionLobby(SessionLobby.Shared);  // Lobby接続.
         while (!task.IsCompleted)
             yield return null;
 
@@ -53,7 +60,8 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (result.Ok)
         {
             Debug.Log("Connected to lobby");
-            OnLobbyJoined?.Invoke();
+            ConnectionManager.Instance.SetState(ConnectionState.InLobby);
+            OnLobbyJoined?.Invoke();    // イベント通知.
         }
         else
         {
@@ -63,6 +71,10 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void CreateRoom(string roomName)
     {
+        currentRoom = roomName;
+        wasInRoom = true;
+
+        ConnectionManager.Instance.ConnectingRoom();
         StartCoroutine(CreateRoomRoutine(roomName));
     }
 
@@ -82,11 +94,16 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (task.Result.Ok)
         {
             Debug.Log("Room Created: " + roomName);
+            ConnectionManager.Instance.JoinedRoom();
         }
     }
 
     public void JoinRoom(string roomName)
     {
+        currentRoom = roomName;
+        wasInRoom = true;
+
+        ConnectionManager.Instance.ConnectingRoom();
         StartCoroutine(JoinRoomRoutine(roomName));
     }
 
@@ -104,12 +121,42 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (task.Result.Ok)
         {
             Debug.Log("Joined Room: " + roomName);
+            ConnectionManager.Instance.JoinedRoom();
         }
     }
 
+    // 再接続.
+    IEnumerator ReconnectRoutine()
+    {
+        ConnectionManager.Instance.SetState(ConnectionState.Reconnecting);
+
+        yield return new WaitForSeconds(2f);
+
+        if (Runner != null)
+        {
+            Runner.Shutdown();
+            Destroy(Runner.gameObject);
+        }
+
+        Runner = Instantiate(networkRunnerPrefab);
+        Runner.AddCallbacks(this);
+
+        if (wasInRoom && !string.IsNullOrEmpty(currentRoom))
+        {
+            JoinRoom(currentRoom);
+        }
+        else
+        {
+            JoinLobby();
+        }
+
+        isReconnecting = false;
+    }
+
+    // ↓Fusionの各コールバック関数.
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
     {
-        OnSessionListChanged?.Invoke(sessionList);
+        OnSessionListChanged?.Invoke(sessionList);  // RoomList更新を通知.
     }
 
     // プレイヤー参加
@@ -127,25 +174,52 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     void INetworkRunnerCallbacks.OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 
+    /// <summary>
+    /// Fusionの入力同期.
+    /// </summary>
+    /// <param name="runner"></param>
+    /// <param name="input"></param>
     void INetworkRunnerCallbacks.OnInput(NetworkRunner runner, NetworkInput input)
     {
         var data = new PlayerInputData();
 
         if (InputManager.Instance != null)
         {
-            data.Throttle = InputManager.Instance.Move.y;
-            data.Steering = InputManager.Instance.Move.x;
-            data.Buttons.Set(NetworkInputButtons.Jump, InputManager.Instance.Jump);
+            // InputManagerの入力を取得.
+            data.Throttle = InputManager.Instance.Move.y;   // 前後.
+            data.Steering = InputManager.Instance.Move.x;   // 左右.
+            data.Buttons.Set(NetworkInputButtons.Jump, InputManager.Instance.Jump); // ジャンプ.
         }
 
-        input.Set(data);
+        input.Set(data);    // Fusionへ送信.
     }
     void INetworkRunnerCallbacks.OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    void INetworkRunnerCallbacks.OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+    void INetworkRunnerCallbacks.OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+    {
+        Debug.LogWarning($"Shutdown: {shutdownReason}");
+        if (!isReconnecting)
+        {
+            StartCoroutine(ReconnectRoutine());
+        }
+    }
     void INetworkRunnerCallbacks.OnConnectedToServer(NetworkRunner runner) { }
-    void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        Debug.LogWarning($"Disconnected: {reason}");
+        if (!isReconnecting)
+        {
+            StartCoroutine(ReconnectRoutine());
+        }
+    }
     void INetworkRunnerCallbacks.OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    void INetworkRunnerCallbacks.OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+    void INetworkRunnerCallbacks.OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
+    {
+        Debug.LogError($"Connection Failed: {reason}");
+        if (!isReconnecting)
+        {
+            StartCoroutine(ReconnectRoutine());
+        }
+    }
     void INetworkRunnerCallbacks.OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     void INetworkRunnerCallbacks.OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     void INetworkRunnerCallbacks.OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }

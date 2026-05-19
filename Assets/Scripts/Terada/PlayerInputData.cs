@@ -4,8 +4,8 @@ using UnityEngine;
 // “ü—Í\‘¢‘Ì.
 public struct PlayerInputData : INetworkInput
 {
-    public float Throttle;
-    public float Steering;
+    public float Throttle;  // ‘OŒã.
+    public float Steering;  // ¶‰E.
     public NetworkButtons Buttons;
 }
 

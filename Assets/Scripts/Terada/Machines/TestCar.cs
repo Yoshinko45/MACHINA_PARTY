@@ -14,6 +14,7 @@ public class TestCar : NetworkBehaviour, IVehicle
         transform.Rotate(0, data.Steering * 120f * Runner.DeltaTime, 0);
     }
 
+    // 車の座標取得（UIやミニマップ等に流用できそう）.
     public Transform GetTransform()
     {
         return transform;

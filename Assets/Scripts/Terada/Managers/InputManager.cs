@@ -16,7 +16,6 @@ public class InputManager : MonoBehaviour
     void Awake()
     {
         Instance = this;
-
         DontDestroyOnLoad(gameObject);
 
         actions = new PlayerInput_Actions();
