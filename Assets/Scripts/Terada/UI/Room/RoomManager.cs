@@ -28,7 +28,7 @@ public class RoomManager : MonoBehaviour
             {
                 var networkPlayer = obj.GetComponent<NetworkPlayer>();
 
-                if (networkPlayer.IsReady) return false;
+                if (!networkPlayer.IsReady) return false;
             }
         }
 
