@@ -4,143 +4,261 @@ namespace Tanks.Complete
 {
     public class CameraControl : MonoBehaviour
     {
-        public float m_DampTime = 0.2f;                 // Approximate time for the camera to refocus.
-        public float m_ScreenEdgeBuffer = 4f;           // Space between the top/bottom most target and the screen edge.
-        public float m_MinSize = 6.5f;                  // The smallest orthographic size the camera can be.
-        public Transform[] m_Targets;                   // All the targets the camera needs to encompass.
+        // =====================================================
+        // ■ カメラ設定用の変数
+        // =====================================================
+
+        // カメラが目的地へ追従する時の滑らかさ
+        // 値が小さい → 素早く追従
+        // 値が大きい → ゆっくり追従
+        public float m_DampTime = 0.2f;
+
+        // ターゲットが画面端に近づきすぎないようにする余白
+        public float m_ScreenEdgeBuffer = 4f;
+
+        // カメラの最小ズームサイズ
+        // 小さすぎると近すぎるため最低値を設定
+        public float m_MinSize = 6.5f;
+
+        // カメラが追いかける対象（プレイヤーなど）
+        public Transform[] m_Targets;
 
 
-        private Camera m_Camera;                        // Used for referencing the camera.
-        private float m_ZoomSpeed;                      // Reference speed for the smooth damping of the orthographic size.
-        private Vector3 m_MoveVelocity;                 // Reference velocity for the smooth damping of the position.
-        private Vector3 m_DesiredPosition;              // The position the camera is moving towards.
+        // =====================================================
+        // ■ 内部で使用する変数
+        // =====================================================
 
-        private Vector3 m_AimToRig;                     // The offset to apply to the position so the child camera aim at the desired point 
+        // 子オブジェクトの Camera コンポーネント
+        private Camera m_Camera;
 
-        private void Awake ()
+        // SmoothDamp のズーム速度保存用
+        private float m_ZoomSpeed;
+
+        // SmoothDamp の移動速度保存用
+        private Vector3 m_MoveVelocity;
+
+        // カメラが最終的に移動したい座標
+        private Vector3 m_DesiredPosition;
+
+        // カメラの向き補正用オフセット
+        private Vector3 m_AimToRig;
+
+
+        // =====================================================
+        // ■ 初期化
+        // =====================================================
+        private void Awake()
         {
-            m_Camera = GetComponentInChildren<Camera> ();
-            
-            // plane in which the camera rig is in
+            // 子オブジェクトから Camera を取得
+            m_Camera = GetComponentInChildren<Camera>();
+
+
+            // -------------------------------------------------
+            // カメラが向いている位置を取得する処理
+            // -------------------------------------------------
+
+            // カメラリグ（親オブジェクト）の高さに水平な平面を作成
             Plane p = new Plane(Vector3.up, transform.position);
-            Ray r = new Ray(m_Camera.transform.position, m_Camera.transform.forward);
-            p.Raycast(r, out float d );
 
-            // This is where the camera aim on the rig plane
-            var aimTArget = r.GetPoint(d);
+            // カメラ位置から前方向へレイを飛ばす
+            Ray r = new Ray(m_Camera.transform.position,
+                            m_Camera.transform.forward);
 
-            // User can set the camera in random position and rotation as a child of this object, so it won't aim at the
-            // center of this, meaning placing this object at the desired position won't make the camera aim at that desired position.
-            // This offset correct that so the camera actually aim at the desired position
-            m_AimToRig = transform.position - aimTArget;
+            // レイと平面が交差した距離を取得
+            p.Raycast(r, out float d);
+
+            // レイが平面と交わる地点
+            var aimTarget = r.GetPoint(d);
+
+
+            // -------------------------------------------------
+            // カメラの向き補正
+            // -------------------------------------------------
+            // カメラが親オブジェクトの中心を
+            // 見ていない場合があるため補正する
+            // -------------------------------------------------
+
+            m_AimToRig = transform.position - aimTarget;
         }
 
 
-        private void FixedUpdate ()
+        // =====================================================
+        // ■ 毎フレーム物理更新
+        // =====================================================
+        private void FixedUpdate()
         {
-            // Move the camera towards a desired position.
-            Move ();
+            // カメラ移動
+            Move();
 
-            // Change the size of the camera based.
-            Zoom ();
+            // カメラズーム
+            Zoom();
         }
 
 
-        private void Move ()
+        // =====================================================
+        // ■ カメラ移動処理
+        // =====================================================
+        private void Move()
         {
-            // Find the average position of the targets.
-            FindAveragePosition ();
+            // ターゲットの平均位置を計算
+            FindAveragePosition();
 
-            
-            // Smoothly transition to that position.
-            transform.position = Vector3.SmoothDamp(transform.position, m_DesiredPosition + m_AimToRig, ref m_MoveVelocity, m_DampTime);
+            // SmoothDampで滑らかに移動
+            transform.position =
+                Vector3.SmoothDamp(
+                    transform.position,
+                    m_DesiredPosition + m_AimToRig,
+                    ref m_MoveVelocity,
+                    m_DampTime
+                );
         }
 
 
-        private void FindAveragePosition ()
+        // =====================================================
+        // ■ ターゲットの平均位置を求める
+        // =====================================================
+        private void FindAveragePosition()
         {
-            Vector3 averagePos = new Vector3 ();
+            // 合計座標
+            Vector3 averagePos = new Vector3();
+
+            // 有効なターゲット数
             int numTargets = 0;
 
-            // Go through all the targets and add their positions together.
+
+            // 全ターゲットを調べる
             for (int i = 0; i < m_Targets.Length; i++)
             {
-                // If the target isn't active, go on to the next one.
+                // 非表示なら無視
                 if (!m_Targets[i].gameObject.activeSelf)
                     continue;
 
-                // Add to the average and increment the number of targets in the average.
+                // 座標を加算
                 averagePos += m_Targets[i].position;
+
+                // ターゲット数加算
                 numTargets++;
             }
 
-            // If there are targets divide the sum of the positions by the number of them to find the average.
-            if (numTargets > 0)
-                averagePos /= numTargets;
 
-            // Keep the same y value.
+            // ターゲットが存在する場合
+            if (numTargets > 0)
+            {
+                // 平均座標を求める
+                averagePos /= numTargets;
+            }
+
+
+            // y座標は現在の高さを維持
+            // （高さは変えない）
             averagePos.y = transform.position.y;
-            
+
+            // 求めた座標を保存
             m_DesiredPosition = averagePos;
         }
 
 
-        private void Zoom ()
+        // =====================================================
+        // ■ カメラズーム処理
+        // =====================================================
+        private void Zoom()
         {
-            // Find the required size based on the desired position and smoothly transition to that size.
+            // 必要なズームサイズを計算
             float requiredSize = FindRequiredSize();
-            m_Camera.orthographicSize = Mathf.SmoothDamp (m_Camera.orthographicSize, requiredSize, ref m_ZoomSpeed, m_DampTime);
+
+            // 滑らかにズーム変更
+            m_Camera.orthographicSize =
+                Mathf.SmoothDamp(
+                    m_Camera.orthographicSize,
+                    requiredSize,
+                    ref m_ZoomSpeed,
+                    m_DampTime
+                );
         }
 
 
-        private float FindRequiredSize ()
+        // =====================================================
+        // ■ 必要なカメラサイズを求める
+        // =====================================================
+        private float FindRequiredSize()
         {
-            // Find the position the camera rig is moving towards in its local space.
-            Vector3 desiredLocalPos = m_Camera.transform.InverseTransformPoint(m_DesiredPosition);
+            // -------------------------------------------------
+            // カメラ基準のローカル座標へ変換
+            // -------------------------------------------------
 
-            // Start the camera's size calculation at zero.
+            Vector3 desiredLocalPos =
+                m_Camera.transform.InverseTransformPoint(
+                    m_DesiredPosition
+                );
+
+            // カメラサイズ初期値
             float size = 0f;
 
-            // Go through all the targets...
+
+            // 全ターゲット確認
             for (int i = 0; i < m_Targets.Length; i++)
             {
-                // ... and if they aren't active continue on to the next target.
+                // 非表示ならスキップ
                 if (!m_Targets[i].gameObject.activeSelf)
                     continue;
 
-                // Otherwise, find the position of the target in the camera's local space.
-                Vector3 targetLocalPos = m_Camera.transform.InverseTransformPoint(m_Targets[i].position);
 
-                // Find the position of the target from the desired position of the camera's local space.
-                Vector3 desiredPosToTarget = targetLocalPos - desiredLocalPos;
+                // ターゲット座標をカメラ基準へ変換
+                Vector3 targetLocalPos =
+                    m_Camera.transform.InverseTransformPoint(
+                        m_Targets[i].position
+                    );
 
-                // Choose the largest out of the current size and the distance of the tank 'up' or 'down' from the camera.
-                size = Mathf.Max(size, Mathf.Abs(desiredPosToTarget.y));
 
-                // Choose the largest out of the current size and the calculated size based on the tank being to the left or right of the camera.
-                size = Mathf.Max(size, Mathf.Abs(desiredPosToTarget.x) / m_Camera.aspect);
+                // カメラ中心からターゲットまでの距離
+                Vector3 desiredPosToTarget =
+                    targetLocalPos - desiredLocalPos;
+
+
+                // ---------------------------------------------
+                // 上下方向の距離を確認
+                // ---------------------------------------------
+                size = Mathf.Max(
+                    size,
+                    Mathf.Abs(desiredPosToTarget.y)
+                );
+
+
+                // ---------------------------------------------
+                // 左右方向の距離を確認
+                // aspect で画面比率補正
+                // ---------------------------------------------
+                size = Mathf.Max(
+                    size,
+                    Mathf.Abs(desiredPosToTarget.x)
+                    / m_Camera.aspect
+                );
             }
 
-            // Add the edge buffer to the size.
+
+            // 画面端の余白追加
             size += m_ScreenEdgeBuffer;
 
-            // Make sure the camera's size isn't below the minimum.
-            size = Mathf.Max (size, m_MinSize);
+            // 最小サイズ以下にならないよう制限
+            size = Mathf.Max(size, m_MinSize);
 
             return size;
         }
 
 
-        public void SetStartPositionAndSize ()
+        // =====================================================
+        // ■ ゲーム開始時の位置・サイズ設定
+        // =====================================================
+        public void SetStartPositionAndSize()
         {
-            // Find the desired position.
-            FindAveragePosition ();
+            // 平均位置計算
+            FindAveragePosition();
 
-            // Set the camera's position to the desired position without damping.
+            // 即座に移動
             transform.position = m_DesiredPosition;
 
-            // Find and set the required size of the camera.
-            m_Camera.orthographicSize = FindRequiredSize ();
+            // 即座にズーム設定
+            m_Camera.orthographicSize = FindRequiredSize();
         }
     }
 }

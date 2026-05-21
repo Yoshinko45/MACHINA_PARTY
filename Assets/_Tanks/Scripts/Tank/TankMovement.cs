@@ -1,12 +1,10 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Users;
 
 namespace Tanks.Complete
 {
     // =====================================================
-    // このスクリプトを他より先に実行
-    // （Inputなどを先に準備するため）
+    // 他のスクリプトより先に実行
     // =====================================================
     [DefaultExecutionOrder(-10)]
 
@@ -19,6 +17,8 @@ namespace Tanks.Complete
         [Header("Player")]
 
         // プレイヤー番号
+        // 1 = WASD
+        // 2 = 矢印キー
         public int m_PlayerNumber = 1;
 
         // =====================================================
@@ -27,13 +27,13 @@ namespace Tanks.Complete
 
         [Header("Movement")]
 
-        // 前進速度
+        // 移動速度
         public float m_Speed = 12f;
 
         // 回転速度
         public float m_TurnSpeed = 180f;
 
-        // カメラ方向に対して移動するか
+        // カメラ方向基準移動
         public bool m_IsDirectControl;
 
         // =====================================================
@@ -42,16 +42,16 @@ namespace Tanks.Complete
 
         [Header("Audio")]
 
-        // エンジン音用AudioSource
+        // エンジン音
         public AudioSource m_MovementAudio;
 
-        // 停止時の音
+        // 停止音
         public AudioClip m_EngineIdling;
 
-        // 移動時の音
+        // 走行音
         public AudioClip m_EngineDriving;
 
-        // 音程のランダム幅
+        // 音程ランダム幅
         public float m_PitchRange = 0.2f;
 
         // =====================================================
@@ -60,12 +60,8 @@ namespace Tanks.Complete
 
         [Header("Control")]
 
-        // CPU操作かどうか
+        // CPU操作か
         public bool m_IsComputerControlled = false;
-
-        // 入力管理用
-        [HideInInspector]
-        public TankInputUser m_InputUser;
 
         // 使用する操作番号
         public int ControlIndex { get; set; } = -1;
@@ -81,27 +77,18 @@ namespace Tanks.Complete
         // 入力関連
         // =====================================================
 
-        // 移動入力
-        private InputAction m_MoveAction;
-
-        // 回転入力
-        private InputAction m_TurnAction;
-
-        // 前後入力値
+        // 前後入力
         private float m_MovementInputValue;
 
-        // 左右入力値
+        // 左右入力
         private float m_TurnInputValue;
 
-        // ゲームパッド操作か
+        // ゲームパッド方式か
         private bool m_UsingGamepadScheme;
 
         // =====================================================
-        // 移動関連
+        // 爆風関連
         // =====================================================
-
-        // 要求された移動方向
-        private Vector3 m_RequestedDirection;
 
         // 爆風ノックバック速度
         private Vector3 m_ExplosionVelocity;
@@ -117,12 +104,11 @@ namespace Tanks.Complete
         // エフェクト関連
         // =====================================================
 
-        // 子ParticleSystem一覧
+        // 子Particle一覧
         private ParticleSystem[] m_particleSystems;
 
         // =====================================================
         // Awake
-        // 最初に呼ばれる
         // =====================================================
 
         private void Awake()
@@ -137,17 +123,6 @@ namespace Tanks.Complete
                 m_CharacterController =
                     gameObject.AddComponent<CharacterController>();
             }
-
-            // 入力管理取得
-            m_InputUser =
-                GetComponent<TankInputUser>();
-
-            // 無ければ追加
-            if (m_InputUser == null)
-            {
-                m_InputUser =
-                    gameObject.AddComponent<TankInputUser>();
-            }
         }
 
         // =====================================================
@@ -156,14 +131,14 @@ namespace Tanks.Complete
 
         private void OnEnable()
         {
-            // 入力値初期化
+            // 入力初期化
             m_MovementInputValue = 0f;
             m_TurnInputValue = 0f;
 
             // 爆風初期化
             m_ExplosionVelocity = Vector3.zero;
 
-            // 全Particle取得
+            // Particle取得
             m_particleSystems =
                 GetComponentsInChildren<ParticleSystem>();
 
@@ -201,6 +176,7 @@ namespace Tanks.Complete
             {
                 var ai = GetComponent<TankAI>();
 
+                // 無ければ追加
                 if (ai == null)
                 {
                     gameObject.AddComponent<TankAI>();
@@ -218,78 +194,10 @@ namespace Tanks.Complete
                 ControlIndex = m_PlayerNumber;
             }
 
-            // モバイルUI取得
-            var mobileControl =
-                FindAnyObjectByType<MobileUIControl>();
-
             // =====================================================
-            // 操作方式設定
-            // =====================================================
-
-            // モバイル操作の場合
-            if (mobileControl != null &&
-                ControlIndex == 1)
-            {
-                // モバイルデバイスをペアリング
-                m_InputUser.SetNewInputUser(
-                    InputUser.PerformPairingWithDevice(
-                        mobileControl.Device
-                    )
-                );
-
-                // Gamepadスキーム有効
-                TryActivateScheme("Gamepad");
-
-                m_UsingGamepadScheme = true;
-            }
-            else
-            {
-                // キーボード操作
-                TryActivateScheme("Keyboard&Mouse");
-
-                m_UsingGamepadScheme = false;
-            }
-
-            // =====================================================
-            // 入力アクション取得
-            // =====================================================
-
-            // Move取得
-            m_MoveAction =
-                m_InputUser.ActionAsset.FindAction("Move");
-
-            // 無かったらエラー
-            if (m_MoveAction == null)
-            {
-                Debug.LogError("Move Action not found.");
-                enabled = false;
-                return;
-            }
-
-            // Look取得
-            m_TurnAction =
-                m_InputUser.ActionAsset.FindAction("Look");
-
-            // 無ければHorizontal取得
-            if (m_TurnAction == null)
-            {
-                m_TurnAction =
-                    m_InputUser.ActionAsset.FindAction("Horizontal");
-            }
-
-            // それでも無ければエラー
-            if (m_TurnAction == null)
-            {
-                Debug.LogError("Turn Action not found.");
-                enabled = false;
-                return;
-            }
-
-            // 入力有効化
-            m_MoveAction.Enable();
-            m_TurnAction.Enable();
-
             // 元の音程保存
+            // =====================================================
+
             if (m_MovementAudio)
             {
                 m_OriginalPitch =
@@ -298,37 +206,97 @@ namespace Tanks.Complete
         }
 
         // =====================================================
-        // 毎フレーム更新
+        // Update
         // =====================================================
 
         private void Update()
         {
-            // CPU操作でないなら入力取得
+            // =====================================================
+            // CPUでなければ入力取得
+            // =====================================================
+
             if (!m_IsComputerControlled)
             {
-                // Move入力取得
-                Vector2 moveInput =
-                    m_MoveAction.ReadValue<Vector2>();
+                // 入力初期化
+                m_MovementInputValue = 0f;
+                m_TurnInputValue = 0f;
 
-                // 前後入力
-                m_MovementInputValue =
-                    moveInput.y;
+                // =====================================================
+                // Player1 : WASD
+                // =====================================================
 
-                // 左右入力
-                m_TurnInputValue =
-                    moveInput.x;
+                if (m_PlayerNumber == 1)
+                {
+                    // 前進
+                    if (Keyboard.current.wKey.isPressed)
+                    {
+                        m_MovementInputValue = 1f;
+                    }
+
+                    // 後退
+                    if (Keyboard.current.sKey.isPressed)
+                    {
+                        m_MovementInputValue = -1f;
+                    }
+
+                    // 左回転
+                    if (Keyboard.current.aKey.isPressed)
+                    {
+                        m_TurnInputValue = -1f;
+                    }
+
+                    // 右回転
+                    if (Keyboard.current.dKey.isPressed)
+                    {
+                        m_TurnInputValue = 1f;
+                    }
+                }
+
+                // =====================================================
+                // Player2 : 矢印キー
+                // =====================================================
+
+                else if (m_PlayerNumber == 2)
+                {
+                    // 前進
+                    if (Keyboard.current.upArrowKey.isPressed)
+                    {
+                        m_MovementInputValue = 1f;
+                    }
+
+                    // 後退
+                    if (Keyboard.current.downArrowKey.isPressed)
+                    {
+                        m_MovementInputValue = -1f;
+                    }
+
+                    // 左回転
+                    if (Keyboard.current.leftArrowKey.isPressed)
+                    {
+                        m_TurnInputValue = -1f;
+                    }
+
+                    // 右回転
+                    if (Keyboard.current.rightArrowKey.isPressed)
+                    {
+                        m_TurnInputValue = 1f;
+                    }
+                }
             }
 
+            // =====================================================
             // エンジン音更新
+            // =====================================================
+
             if (m_MovementAudio)
             {
                 EngineAudio();
             }
 
-            // 移動処理
+            // 移動
             Move();
 
-            // 回転処理
+            // 回転
             Turn();
         }
 
@@ -338,26 +306,22 @@ namespace Tanks.Complete
 
         private void EngineAudio()
         {
-            // 動いているか判定
+            // 動いているか
             bool isMoving =
                 Mathf.Abs(m_MovementInputValue) > 0.1f ||
                 Mathf.Abs(m_TurnInputValue) > 0.1f;
 
-            // =====================================================
             // 停止中
-            // =====================================================
-
             if (!isMoving)
             {
-                // 現在走行音なら切り替える
                 if (m_MovementAudio.clip ==
                     m_EngineDriving)
                 {
-                    // アイドル音へ変更
+                    // 停止音へ
                     m_MovementAudio.clip =
                         m_EngineIdling;
 
-                    // 少しランダム音程
+                    // ランダム音程
                     m_MovementAudio.pitch =
                         Random.Range(
                             m_OriginalPitch - m_PitchRange,
@@ -369,17 +333,13 @@ namespace Tanks.Complete
                 }
             }
 
-            // =====================================================
             // 移動中
-            // =====================================================
-
             else
             {
-                // 現在停止音なら切り替える
                 if (m_MovementAudio.clip ==
                     m_EngineIdling)
                 {
-                    // 走行音へ変更
+                    // 走行音へ
                     m_MovementAudio.clip =
                         m_EngineDriving;
 
@@ -402,10 +362,11 @@ namespace Tanks.Complete
 
         private void Move()
         {
+            // 移動方向
             Vector3 moveDirection;
 
             // =====================================================
-            // カメラ基準移動
+            // カメラ方向基準
             // =====================================================
 
             if ((m_UsingGamepadScheme ||
@@ -426,12 +387,12 @@ namespace Tanks.Complete
                 camRight.y = 0f;
                 camRight.Normalize();
 
-                // カメラ基準移動方向
+                // 移動方向
                 moveDirection =
                     camForward * m_MovementInputValue +
                     camRight * m_TurnInputValue;
 
-                // 斜め移動速度補正
+                // 斜め補正
                 if (moveDirection.sqrMagnitude > 1f)
                 {
                     moveDirection.Normalize();
@@ -439,7 +400,7 @@ namespace Tanks.Complete
             }
 
             // =====================================================
-            // タンク前方向移動
+            // タンク前方向
             // =====================================================
 
             else
@@ -453,10 +414,10 @@ namespace Tanks.Complete
             Vector3 velocity =
                 moveDirection * m_Speed;
 
-            // 爆風ノックバック追加
+            // 爆風追加
             velocity += m_ExplosionVelocity;
 
-            // CharacterController移動
+            // 移動
             m_CharacterController.Move(
                 velocity * Time.deltaTime
             );
@@ -476,66 +437,22 @@ namespace Tanks.Complete
 
         private void Turn()
         {
-            // =====================================================
-            // スティック方向へ向く
-            // =====================================================
+            // 回転量
+            float turn =
+                m_TurnInputValue *
+                m_TurnSpeed *
+                Time.deltaTime;
 
-            if (m_UsingGamepadScheme ||
-                m_IsDirectControl)
-            {
-                // 向く方向
-                Vector3 lookDirection =
-                    new Vector3(
-                        m_TurnInputValue,
-                        0f,
-                        m_MovementInputValue
-                    );
-
-                // 入力無し
-                if (lookDirection.sqrMagnitude < 0.001f)
-                {
-                    return;
-                }
-
-                // 目標回転
-                Quaternion targetRotation =
-                    Quaternion.LookRotation(
-                        lookDirection,
-                        Vector3.up
-                    );
-
-                // 徐々に回転
-                transform.rotation =
-                    Quaternion.RotateTowards(
-                        transform.rotation,
-                        targetRotation,
-                        m_TurnSpeed * Time.deltaTime
-                    );
-            }
-
-            // =====================================================
-            // 左右回転
-            // =====================================================
-
-            else
-            {
-                // 回転量
-                float turn =
-                    m_TurnInputValue *
-                    m_TurnSpeed *
-                    Time.deltaTime;
-
-                // Y軸回転
-                transform.Rotate(
-                    0f,
-                    turn,
-                    0f
-                );
-            }
+            // Y軸回転
+            transform.Rotate(
+                0f,
+                turn,
+                0f
+            );
         }
 
         // =====================================================
-        // 爆風ノックバック追加
+        // 爆風追加
         // =====================================================
 
         public void AddExplosionForce(
@@ -569,37 +486,11 @@ namespace Tanks.Complete
                     explosionRadius
                 );
 
-            // 爆風速度設定
+            // 爆風速度
             m_ExplosionVelocity =
                 explosionDir *
                 explosionForce *
                 attenuation;
-        }
-
-        // =====================================================
-        // 操作スキーム切り替え
-        // =====================================================
-
-        private bool TryActivateScheme(
-            string schemeName)
-        {
-            try
-            {
-                // スキーム有効化
-                m_InputUser.ActivateScheme(
-                    schemeName
-                );
-
-                return true;
-            }
-            catch (System.ArgumentException)
-            {
-                Debug.LogError(
-                    $"Control Scheme '{schemeName}' not found."
-                );
-
-                return false;
-            }
         }
     }
 }
