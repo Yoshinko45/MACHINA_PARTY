@@ -12,6 +12,8 @@ public class InputManager : MonoBehaviour
 
     public Vector2 Move { get; private set; }
     public bool Jump { get; private set; }
+    public bool Interact { get; private set; }
+    public bool InteractPressed { get; private set; }
 
     void Awake()
     {
@@ -25,15 +27,35 @@ public class InputManager : MonoBehaviour
 
         actions.Player.Jump.performed += ctx => Jump = true;
         actions.Player.Jump.canceled += ctx => Jump = false;
+
+        actions.Player.Interact.performed += ctx => Interact = true;
+        actions.Player.Interact.canceled += ctx => Interact = false;
+
+        actions.Player.Interact.performed += ctx => InteractPressed = true;
     }
 
     void OnEnable()
     {
+        Debug.Log("Enable called");
         actions.Enable();
     }
 
     void OnDisable()
     {
         actions.Disable();
+    }
+
+    //private void LateUpdate()
+    //{
+    //    InteractPressed = false;
+    //}
+
+    public bool ConsumeInteractPressed()
+    {
+        if ((!InteractPressed))
+            return false;
+
+        InteractPressed = false;
+        return true;
     }
 }
