@@ -9,12 +9,12 @@ public class NetworkPlayer : NetworkBehaviour
     [Networked] public bool IsReady { get; set; }
     [Networked] public NetworkObject VehicleObject { get; set; }
 
+    [SerializeField] float interactDistance = 5f;
+
     // ローカルのプレイヤー取得用.
     public static NetworkPlayer LocalPlayer;
 
     private NetworkCharacterController charactorController;
-    //private IVehicle vehicle;
-
     private CameraFollow cam;
     bool _cameraSet;
 
@@ -56,9 +56,52 @@ public class NetworkPlayer : NetworkBehaviour
         }
     }
 
+    private void Update()
+    {
+        if (!Object.HasInputAuthority)
+            return;
+
+        if (InputManager.Instance.ConsumeInteractPressed())
+        {
+            Debug.Log("IInteract Pressed");
+            TryInteract();
+        }
+    }
+
+    void TryInteract()
+    {
+        if (VehicleObject == null)
+            return;
+
+        Vector3 origin = VehicleObject.transform.position + Vector3.up;
+        Vector3 dir = VehicleObject.transform.forward;
+
+        Debug.DrawRay(origin, dir * interactDistance, Color.red, 5f);
+
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, interactDistance))
+        {
+            Debug.Log("Hit : " + hit.collider.name);
+
+            var interactable =
+                hit.collider.GetComponentInParent<IInteractable>();
+
+            if (interactable != null)
+            {
+                Debug.Log("Interact!");
+
+                interactable.Interact(this);
+            }
+        }
+        else
+        {
+            Debug.Log("Nothing Hit");
+        }
+    }
+
     public void SetVehicle(NetworkObject vehicle)
     {
         VehicleObject = vehicle;
+        _cameraSet = false;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
