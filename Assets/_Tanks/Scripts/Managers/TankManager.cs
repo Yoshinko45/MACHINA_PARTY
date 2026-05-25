@@ -3,8 +3,8 @@
 using UnityEditor;
 using UnityEditor.UIElements;
 #endif
+
 using UnityEngine;
-using UnityEngine.InputSystem.Users;
 using UnityEngine.UIElements;
 
 namespace Tanks.Complete
@@ -12,130 +12,325 @@ namespace Tanks.Complete
     [Serializable]
     public class TankManager
     {
-        // This class is to manage various settings on a tank.
-        // It works with the GameManager class to control how the tanks behave
-        // and whether or not players have control of their tank in the 
-        // different phases of the game.
+        // =====================================================
+        // ■ プレイヤー情報
+        // =====================================================
 
-        [HideInInspector] public Color m_PlayerColor;           // This is the color this tank will be tinted.
-        public Transform m_SpawnPoint;                          // The position and direction the tank will have when it spawns.
-        [HideInInspector] public int m_PlayerNumber;            // This specifies which player this the manager for.
-        [HideInInspector] public string m_ColoredPlayerText;    // A string that represents the player with their number colored to match their tank.
-        [HideInInspector] public GameObject m_Instance;         // A reference to the instance of the tank when it is created.
-        [HideInInspector] public int m_Wins;                    // The number of wins this player has so far.
-        [HideInInspector] public bool m_ComputerControlled;     // Is that tank computer controlled
-        
-        public int ControlIndex { get; set; } = 1;              //this defines the index of the control 1 = left keyboard or pad, 2 = right keyboard, -1 = no control
+        [HideInInspector]
+        public Color m_PlayerColor;
+        // プレイヤーカラー
+
+        public Transform m_SpawnPoint;
+        // 出現位置
+
+        [HideInInspector]
+        public int m_PlayerNumber;
+        // プレイヤー番号
+
+        [HideInInspector]
+        public string m_ColoredPlayerText;
+        // UI表示用文字列
+
+        [HideInInspector]
+        public GameObject m_Instance;
+        // Tank本体
+
+        [HideInInspector]
+        public int m_Wins;
+        // 勝利数
+
+        [HideInInspector]
+        public bool m_ComputerControlled;
+        // CPU操作か
 
 
-        private TankMovement m_Movement;                        // Reference to tank's movement script, used to disable and enable control.
-        private TankShooting m_Shooting;                        // Reference to tank's shooting script, used to disable and enable control.
-        private GameObject m_CanvasGameObject;                  // Used to disable the world space UI during the Starting and Ending phases of each round.
-        
-        private TankAI m_AI;                                    // The Tank AI script that let a tank be a bot controlled by the computer
-        private InputUser m_InputUser;                          // The Input user link to that tank. Input user identify a single player in the Input system
-        
-        public void Setup (GameManager manager)
+        // =====================================================
+        // ■ 入力番号
+        // =====================================================
+
+        /*
+            1 = WASD + Space
+            2 = Arrow + Enter
+            3 = Gamepad1
+            4 = Gamepad2
+        */
+
+        [HideInInspector]
+        public int ControlIndex = 1;
+
+
+        // =====================================================
+        // ■ 各コンポーネント参照
+        // =====================================================
+
+        private TankMovement m_Movement;
+
+        private TankShooting m_Shooting;
+
+        private InputReader m_InputReader;
+
+        private GameObject m_CanvasGameObject;
+
+        private TankAI m_AI;
+
+
+        // =====================================================
+        // ■ 初期設定
+        // =====================================================
+
+        public void Setup(GameManager manager)
         {
-            // Get references to the components.
-            m_Movement = m_Instance.GetComponent<TankMovement> ();
-            m_Shooting = m_Instance.GetComponent<TankShooting> ();
-            m_AI = m_Instance.GetComponent<TankAI> ();
-            m_CanvasGameObject = m_Instance.GetComponentInChildren<Canvas> ().gameObject;
+            // =================================================
+            // コンポーネント取得
+            // =================================================
 
-            // Assign the Input User of that Tank to the script controlling input system binding, so the move/fire actions
-            // get only triggered by the right input for that users (e.g. arrow doesn't trigger move if that input user use WASD)
-            var inputUser = m_Instance.GetComponent<TankInputUser>();
-            inputUser.SetNewInputUser(m_InputUser);
+            m_Movement =
+                m_Instance.GetComponent<TankMovement>();
 
-            // Toggle computer controlled on the movement/firing if this tank was tagged as being computer controlled
-            m_Movement.m_IsComputerControlled = m_ComputerControlled;
-            m_Shooting.m_IsComputerControlled = m_ComputerControlled;
-            
-            // Pass along the player number and control index to the movement components. See the TankMovement script for
-            // hose those are used to decided which input the movement respond to.
-            m_Movement.m_PlayerNumber = m_PlayerNumber;
-            m_Movement.ControlIndex = ControlIndex;
+            m_Shooting =
+                m_Instance.GetComponent<TankShooting>();
 
-            // If this tank is computer controlled, add a TankAI component that take care of controlling the behavior
-            if(m_ComputerControlled)
+            m_InputReader =
+                m_Instance.GetComponent<InputReader>();
+
+            m_AI =
+                m_Instance.GetComponent<TankAI>();
+
+            m_CanvasGameObject =
+                m_Instance
+                .GetComponentInChildren<Canvas>()
+                .gameObject;
+
+
+            // =================================================
+            // CPU設定
+            // =================================================
+
+            if (m_Movement != null)
             {
-                m_AI = m_Instance.AddComponent<TankAI>();
+                m_Movement.m_IsComputerControlled =
+                    m_ComputerControlled;
+            }
+
+            if (m_Shooting != null)
+            {
+                m_Shooting.m_IsComputerControlled =
+                    m_ComputerControlled;
+            }
+
+
+            // =================================================
+            // プレイヤー番号設定
+            // =================================================
+
+            if (m_Movement != null)
+            {
+                m_Movement.m_PlayerNumber =
+                    m_PlayerNumber;
+            }
+
+            // =================================================
+            // InputReaderへControlIndex設定
+            // =================================================
+
+            InputReader inputReader =
+                m_Instance.GetComponent<InputReader>();
+
+            if (inputReader != null)
+            {
+                inputReader.ControlIndex =
+                    ControlIndex;
+            }
+
+            // =================================================
+            // InputReaderへControlIndex設定
+            // =================================================
+
+            if (m_InputReader != null)
+            {
+                m_InputReader.ControlIndex =
+                    ControlIndex;
+            }
+
+
+            // =================================================
+            // CPUならAI追加
+            // =================================================
+
+            if (m_ComputerControlled)
+            {
+                // AIが無ければ追加
+                if (m_AI == null)
+                {
+                    m_AI =
+                        m_Instance.AddComponent<TankAI>();
+                }
+
+                // AIセットアップ
                 m_AI.Setup(manager);
             }
-            
-            // Create a string using the correct color that says 'PLAYER 1' etc based on the tank's color and the player's number.
-            m_ColoredPlayerText = "<color=#" + ColorUtility.ToHtmlStringRGB(m_PlayerColor) + ">PLAYER " + m_PlayerNumber + "</color>";
 
-            // Get all of the renderers of the tank.
-            MeshRenderer[] renderers = m_Instance.GetComponentsInChildren<MeshRenderer> ();
 
-            // Go through all the renderers...
+            // =================================================
+            // プレイヤー名カラー設定
+            // =================================================
+
+            m_ColoredPlayerText =
+                "<color=#" +
+                ColorUtility.ToHtmlStringRGB(
+                    m_PlayerColor
+                ) +
+                ">PLAYER " +
+                m_PlayerNumber +
+                "</color>";
+
+
+            // =================================================
+            // タンクカラー変更
+            // =================================================
+
+            MeshRenderer[] renderers =
+                m_Instance.GetComponentsInChildren<MeshRenderer>();
+
+
             for (int i = 0; i < renderers.Length; i++)
             {
-                var renderer = renderers[i];
-                for (int j = 0; j < renderer.materials.Length; ++j)
+                MeshRenderer renderer =
+                    renderers[i];
+
+                for (int j = 0;
+                     j < renderer.materials.Length;
+                     ++j)
                 {
-                    // If the material is the tank color one...
-                    if (renderer.materials[j].name.Contains("TankColor"))
+                    // TankColorマテリアルなら
+                    if (renderer.materials[j]
+                        .name
+                        .Contains("TankColor"))
                     {
-                        // change its color to the player color
-                        renderer.materials[j].color = m_PlayerColor;
+                        renderer.materials[j].color =
+                            m_PlayerColor;
                     }
                 }
             }
         }
 
 
-        // Used during the phases of the game where the player shouldn't be able to control their tank.
-        public void DisableControl ()
+        // =====================================================
+        // ■ 操作禁止
+        // =====================================================
+
+        public void DisableControl()
         {
-            m_Movement.enabled = false;
-            m_Shooting.enabled = false;
-            if(m_ComputerControlled)
+            // 移動停止
+            if (m_Movement != null)
+            {
+                m_Movement.enabled = false;
+            }
+
+            // 発射停止
+            if (m_Shooting != null)
+            {
+                m_Shooting.enabled = false;
+            }
+
+            // AI停止
+            if (m_ComputerControlled &&
+                m_AI != null)
+            {
                 m_AI.enabled = false;
+            }
 
-            m_CanvasGameObject.SetActive (false);
+            // UI非表示
+            if (m_CanvasGameObject != null)
+            {
+                m_CanvasGameObject.SetActive(false);
+            }
         }
 
 
-        // Used during the phases of the game where the player should be able to control their tank.
-        public void EnableControl ()
+        // =====================================================
+        // ■ 操作許可
+        // =====================================================
+
+        public void EnableControl()
         {
-            m_Movement.enabled = true;
-            m_Shooting.enabled = true;
-            if(m_ComputerControlled)
+            // 移動有効
+            if (m_Movement != null)
+            {
+                m_Movement.enabled = true;
+            }
+
+            // 発射有効
+            if (m_Shooting != null)
+            {
+                m_Shooting.enabled = true;
+            }
+
+            // AI有効
+            if (m_ComputerControlled &&
+                m_AI != null)
+            {
                 m_AI.enabled = true;
+            }
 
-            m_CanvasGameObject.SetActive (true);
+            // UI表示
+            if (m_CanvasGameObject != null)
+            {
+                m_CanvasGameObject.SetActive(true);
+            }
         }
 
 
-        // Used at the start of each round to put the tank into it's default state.
-        public void Reset ()
-        {
-            m_Instance.transform.position = m_SpawnPoint.position;
-            m_Instance.transform.rotation = m_SpawnPoint.rotation;
+        // =====================================================
+        // ■ ラウンド開始時リセット
+        // =====================================================
 
-            m_Instance.SetActive (false);
-            m_Instance.SetActive (true);
+        public void Reset()
+        {
+            // 位置リセット
+            m_Instance.transform.position =
+                m_SpawnPoint.position;
+
+            // 回転リセット
+            m_Instance.transform.rotation =
+                m_SpawnPoint.rotation;
+
+
+            // 一度OFF
+            m_Instance.SetActive(false);
+
+            // ONに戻す
+            m_Instance.SetActive(true);
         }
     }
-    
-    
-    #if UNITY_EDITOR
-    // This is a class only used in the unity editor (and not in the final game). It customizes how the TankManager component
-    // will appear in the Inspector. The default make a foldout entry where SpawnPoint is "inside" the TankManager foldout
-    // in the manager array in the GameManager. This change this behavior to directly display the spawn point in the TankManager
-    // Inspector, simplifying the display in the GameManager.
+
+
+#if UNITY_EDITOR
+
+    // =========================================================
+    // ■ Inspector表示カスタム
+    // =========================================================
+
     [CustomPropertyDrawer(typeof(TankManager))]
+
     public class TankManagerDrawer : PropertyDrawer
     {
-        public override VisualElement CreatePropertyGUI(SerializedProperty property)
+        public override VisualElement
+            CreatePropertyGUI(
+                SerializedProperty property
+            )
         {
-            var itemSlot = new PropertyField(property.FindPropertyRelative(nameof(TankManager.m_SpawnPoint)));
+            // SpawnPointだけ表示
+            var itemSlot =
+                new PropertyField(
+                    property.FindPropertyRelative(
+                        nameof(TankManager.m_SpawnPoint)
+                    )
+                );
+
             return itemSlot;
         }
     }
-    #endif
+
+#endif
 }

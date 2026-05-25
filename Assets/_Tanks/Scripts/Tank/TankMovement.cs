@@ -4,25 +4,24 @@ using UnityEngine.InputSystem;
 namespace Tanks.Complete
 {
     // =====================================================
-    // 他のスクリプトより先に実行
+    // ■ 他のスクリプトより先に実行
     // =====================================================
     [DefaultExecutionOrder(-10)]
 
     public class TankMovement : MonoBehaviour
     {
         // =====================================================
-        // プレイヤー設定
+        // ■ プレイヤー設定
         // =====================================================
 
         [Header("Player")]
 
-        // プレイヤー番号
-        // 1 = WASD
-        // 2 = 矢印キー
+        // デバッグ確認用
         public int m_PlayerNumber = 1;
 
+
         // =====================================================
-        // 移動設定
+        // ■ 移動設定
         // =====================================================
 
         [Header("Movement")]
@@ -33,11 +32,12 @@ namespace Tanks.Complete
         // 回転速度
         public float m_TurnSpeed = 180f;
 
-        // カメラ方向基準移動
+        // カメラ方向移動を強制するか
         public bool m_IsDirectControl;
 
+
         // =====================================================
-        // サウンド設定
+        // ■ サウンド設定
         // =====================================================
 
         [Header("Audio")]
@@ -54,8 +54,9 @@ namespace Tanks.Complete
         // 音程ランダム幅
         public float m_PitchRange = 0.2f;
 
+
         // =====================================================
-        // 操作設定
+        // ■ 操作設定
         // =====================================================
 
         [Header("Control")]
@@ -63,18 +64,20 @@ namespace Tanks.Complete
         // CPU操作か
         public bool m_IsComputerControlled = false;
 
-        // 使用する操作番号
-        public int ControlIndex { get; set; } = -1;
 
         // =====================================================
-        // コンポーネント
+        // ■ コンポーネント
         // =====================================================
 
         // CharacterController
         private CharacterController m_CharacterController;
 
+        // 入力管理
+        private InputReader m_InputReader;
+
+
         // =====================================================
-        // 入力関連
+        // ■ 入力関連
         // =====================================================
 
         // 前後入力
@@ -83,32 +86,36 @@ namespace Tanks.Complete
         // 左右入力
         private float m_TurnInputValue;
 
-        // ゲームパッド方式か
+        // ゲームパッド操作か
         private bool m_UsingGamepadScheme;
 
+
         // =====================================================
-        // 爆風関連
+        // ■ 爆風関連
         // =====================================================
 
-        // 爆風ノックバック速度
+        // 爆風ノックバック
         private Vector3 m_ExplosionVelocity;
 
+
         // =====================================================
-        // サウンド関連
+        // ■ サウンド関連
         // =====================================================
 
         // 元の音程
         private float m_OriginalPitch;
 
+
         // =====================================================
-        // エフェクト関連
+        // ■ エフェクト関連
         // =====================================================
 
         // 子Particle一覧
         private ParticleSystem[] m_particleSystems;
 
+
         // =====================================================
-        // Awake
+        // ■ Awake
         // =====================================================
 
         private void Awake()
@@ -117,16 +124,36 @@ namespace Tanks.Complete
             m_CharacterController =
                 GetComponent<CharacterController>();
 
+
             // 無ければ追加
             if (m_CharacterController == null)
             {
                 m_CharacterController =
                     gameObject.AddComponent<CharacterController>();
             }
+
+
+            // =================================================
+            // InputReader取得
+            // =================================================
+
+            m_InputReader =
+                GetComponent<InputReader>();
+
+
+            // 無ければエラー
+            if (m_InputReader == null)
+            {
+                Debug.LogError(
+                    gameObject.name +
+                    " に InputReader がありません"
+                );
+            }
         }
 
+
         // =====================================================
-        // 有効化時
+        // ■ 有効化時
         // =====================================================
 
         private void OnEnable()
@@ -138,9 +165,14 @@ namespace Tanks.Complete
             // 爆風初期化
             m_ExplosionVelocity = Vector3.zero;
 
+
+            // =================================================
             // Particle取得
+            // =================================================
+
             m_particleSystems =
                 GetComponentsInChildren<ParticleSystem>();
+
 
             // Particle再生
             for (int i = 0; i < m_particleSystems.Length; ++i)
@@ -149,8 +181,9 @@ namespace Tanks.Complete
             }
         }
 
+
         // =====================================================
-        // 無効化時
+        // ■ 無効化時
         // =====================================================
 
         private void OnDisable()
@@ -162,19 +195,22 @@ namespace Tanks.Complete
             }
         }
 
+
         // =====================================================
-        // Start
+        // ■ Start
         // =====================================================
 
         private void Start()
         {
-            // =====================================================
+            // =================================================
             // CPU操作ならAI追加
-            // =====================================================
+            // =================================================
 
             if (m_IsComputerControlled)
             {
-                var ai = GetComponent<TankAI>();
+                TankAI ai =
+                    GetComponent<TankAI>();
+
 
                 // 無ければ追加
                 if (ai == null)
@@ -185,113 +221,58 @@ namespace Tanks.Complete
                 return;
             }
 
-            // =====================================================
-            // 操作番号設定
-            // =====================================================
 
-            if (ControlIndex == -1)
-            {
-                ControlIndex = m_PlayerNumber;
-            }
-
-            // =====================================================
+            // =================================================
             // 元の音程保存
-            // =====================================================
+            // =================================================
 
-            if (m_MovementAudio)
+            if (m_MovementAudio != null)
             {
                 m_OriginalPitch =
                     m_MovementAudio.pitch;
             }
         }
 
+
         // =====================================================
-        // Update
+        // ■ Update
         // =====================================================
 
         private void Update()
         {
-            // =====================================================
+            // =================================================
             // CPUでなければ入力取得
-            // =====================================================
+            // =================================================
 
             if (!m_IsComputerControlled)
             {
-                // 入力初期化
-                m_MovementInputValue = 0f;
-                m_TurnInputValue = 0f;
-
-                // =====================================================
-                // Player1 : WASD
-                // =====================================================
-
-                if (m_PlayerNumber == 1)
+                // InputReader存在確認
+                if (m_InputReader != null)
                 {
-                    // 前進
-                    if (Keyboard.current.wKey.isPressed)
-                    {
-                        m_MovementInputValue = 1f;
-                    }
+                    // 前後入力
+                    m_MovementInputValue =
+                        m_InputReader.MoveInput.y;
 
-                    // 後退
-                    if (Keyboard.current.sKey.isPressed)
-                    {
-                        m_MovementInputValue = -1f;
-                    }
+                    // 左右入力
+                    m_TurnInputValue =
+                        m_InputReader.MoveInput.x;
 
-                    // 左回転
-                    if (Keyboard.current.aKey.isPressed)
-                    {
-                        m_TurnInputValue = -1f;
-                    }
-
-                    // 右回転
-                    if (Keyboard.current.dKey.isPressed)
-                    {
-                        m_TurnInputValue = 1f;
-                    }
-                }
-
-                // =====================================================
-                // Player2 : 矢印キー
-                // =====================================================
-
-                else if (m_PlayerNumber == 2)
-                {
-                    // 前進
-                    if (Keyboard.current.upArrowKey.isPressed)
-                    {
-                        m_MovementInputValue = 1f;
-                    }
-
-                    // 後退
-                    if (Keyboard.current.downArrowKey.isPressed)
-                    {
-                        m_MovementInputValue = -1f;
-                    }
-
-                    // 左回転
-                    if (Keyboard.current.leftArrowKey.isPressed)
-                    {
-                        m_TurnInputValue = -1f;
-                    }
-
-                    // 右回転
-                    if (Keyboard.current.rightArrowKey.isPressed)
-                    {
-                        m_TurnInputValue = 1f;
-                    }
+                    // ゲームパッド操作か
+                    m_UsingGamepadScheme =
+                        m_InputReader.IsUsingGamepad;
                 }
             }
 
-            // =====================================================
-            // エンジン音更新
-            // =====================================================
 
-            if (m_MovementAudio)
+            // =================================================
+            // エンジン音更新
+            // =================================================
+
+            if (m_MovementAudio != null)
             {
                 EngineAudio();
             }
+
 
             // 移動
             Move();
@@ -300,8 +281,9 @@ namespace Tanks.Complete
             Turn();
         }
 
+
         // =====================================================
-        // エンジン音処理
+        // ■ エンジン音処理
         // =====================================================
 
         private void EngineAudio()
@@ -311,13 +293,17 @@ namespace Tanks.Complete
                 Mathf.Abs(m_MovementInputValue) > 0.1f ||
                 Mathf.Abs(m_TurnInputValue) > 0.1f;
 
+
+            // =================================================
             // 停止中
+            // =================================================
+
             if (!isMoving)
             {
                 if (m_MovementAudio.clip ==
                     m_EngineDriving)
                 {
-                    // 停止音へ
+                    // 停止音へ変更
                     m_MovementAudio.clip =
                         m_EngineIdling;
 
@@ -333,13 +319,17 @@ namespace Tanks.Complete
                 }
             }
 
+
+            // =================================================
             // 移動中
+            // =================================================
+
             else
             {
                 if (m_MovementAudio.clip ==
                     m_EngineIdling)
                 {
-                    // 走行音へ
+                    // 走行音へ変更
                     m_MovementAudio.clip =
                         m_EngineDriving;
 
@@ -356,8 +346,9 @@ namespace Tanks.Complete
             }
         }
 
+
         // =====================================================
-        // 移動処理
+        // ■ 移動処理
         // =====================================================
 
         private void Move()
@@ -365,9 +356,10 @@ namespace Tanks.Complete
             // 移動方向
             Vector3 moveDirection;
 
-            // =====================================================
-            // カメラ方向基準
-            // =====================================================
+
+            // =================================================
+            // カメラ方向基準移動
+            // =================================================
 
             if ((m_UsingGamepadScheme ||
                  m_IsDirectControl) &&
@@ -380,6 +372,7 @@ namespace Tanks.Complete
                 camForward.y = 0f;
                 camForward.Normalize();
 
+
                 // カメラ右方向
                 Vector3 camRight =
                     Camera.main.transform.right;
@@ -387,21 +380,44 @@ namespace Tanks.Complete
                 camRight.y = 0f;
                 camRight.Normalize();
 
-                // 移動方向
+
+                // 入力方向
                 moveDirection =
                     camForward * m_MovementInputValue +
                     camRight * m_TurnInputValue;
 
-                // 斜め補正
+
+                // 斜め移動補正
                 if (moveDirection.sqrMagnitude > 1f)
                 {
                     moveDirection.Normalize();
                 }
+
+
+                // =================================================
+                // 移動方向を向く
+                // =================================================
+
+                if (moveDirection != Vector3.zero)
+                {
+                    Quaternion targetRotation =
+                        Quaternion.LookRotation(
+                            moveDirection
+                        );
+
+                    transform.rotation =
+                        Quaternion.RotateTowards(
+                            transform.rotation,
+                            targetRotation,
+                            m_TurnSpeed * Time.deltaTime
+                        );
+                }
             }
 
-            // =====================================================
-            // タンク前方向
-            // =====================================================
+
+            // =================================================
+            // 通常移動
+            // =================================================
 
             else
             {
@@ -410,17 +426,24 @@ namespace Tanks.Complete
                     m_MovementInputValue;
             }
 
+
+            // =================================================
             // 実際の速度
+            // =================================================
+
             Vector3 velocity =
                 moveDirection * m_Speed;
+
 
             // 爆風追加
             velocity += m_ExplosionVelocity;
 
-            // 移動
+
+            // 実際に移動
             m_CharacterController.Move(
                 velocity * Time.deltaTime
             );
+
 
             // 爆風減衰
             m_ExplosionVelocity =
@@ -431,17 +454,33 @@ namespace Tanks.Complete
                 );
         }
 
+
         // =====================================================
-        // 回転処理
+        // ■ 回転処理
         // =====================================================
 
         private void Turn()
         {
-            // 回転量
+            // =================================================
+            // カメラ方向移動時は回転しない
+            // =================================================
+
+            if (m_UsingGamepadScheme ||
+                m_IsDirectControl)
+            {
+                return;
+            }
+
+
+            // =================================================
+            // 通常タンク回転
+            // =================================================
+
             float turn =
                 m_TurnInputValue *
                 m_TurnSpeed *
                 Time.deltaTime;
+
 
             // Y軸回転
             transform.Rotate(
@@ -451,8 +490,9 @@ namespace Tanks.Complete
             );
         }
 
+
         // =====================================================
-        // 爆風追加
+        // ■ 爆風追加
         // =====================================================
 
         public void AddExplosionForce(
@@ -466,9 +506,11 @@ namespace Tanks.Complete
                 transform.position -
                 explosionPosition;
 
+
             // 距離
             float explosionDistance =
                 explosionDir.magnitude;
+
 
             // 上方向補正
             if (upwardsModifier != 0f)
@@ -476,8 +518,10 @@ namespace Tanks.Complete
                 explosionDir.y += upwardsModifier;
             }
 
+
             // 正規化
             explosionDir.Normalize();
+
 
             // 距離減衰
             float attenuation =
@@ -485,6 +529,7 @@ namespace Tanks.Complete
                     explosionDistance /
                     explosionRadius
                 );
+
 
             // 爆風速度
             m_ExplosionVelocity =

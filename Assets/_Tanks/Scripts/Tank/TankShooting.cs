@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace Tanks.Complete
@@ -7,13 +6,11 @@ namespace Tanks.Complete
     public class TankShooting : MonoBehaviour
     {
         // =====================================================
-        // ■ プレイヤー番号
+        // ■ InputReader
         // =====================================================
 
-        [Header("Player Settings")]
-
-        [Tooltip("1 = Player1 / 2 = Player2")]
-        public int playerID = 1;
+        // このタンク専用の入力
+        private InputReader m_InputReader;
 
 
         // =====================================================
@@ -21,8 +18,11 @@ namespace Tanks.Complete
         // =====================================================
 
         [Header("Shell")]
+
+        // 発射する弾Prefab
         public Rigidbody m_Shell;
 
+        // 発射位置
         public Transform m_FireTransform;
 
 
@@ -31,6 +31,8 @@ namespace Tanks.Complete
         // =====================================================
 
         [Header("UI")]
+
+        // チャージゲージ
         public Slider m_AimSlider;
 
 
@@ -39,10 +41,14 @@ namespace Tanks.Complete
         // =====================================================
 
         [Header("Audio")]
+
+        // 発射音用AudioSource
         public AudioSource m_ShootingAudio;
 
+        // チャージ音
         public AudioClip m_ChargingClip;
 
+        // 発射音
         public AudioClip m_FireClip;
 
 
@@ -85,16 +91,22 @@ namespace Tanks.Complete
         // ■ 内部変数
         // =====================================================
 
+        // 現在の発射力
         private float m_CurrentLaunchForce;
 
+        // チャージ速度
         private float m_ChargeSpeed;
 
+        // 発射済みか
         private bool m_Fired;
 
+        // チャージ中か
         private bool m_IsCharging;
 
+        // 最低威力保存用
         private float m_BaseMinLaunchForce;
 
+        // クールタイムタイマー
         private float m_ShotCooldownTimer;
 
 
@@ -102,8 +114,10 @@ namespace Tanks.Complete
         // ■ 特殊弾関連
         // =====================================================
 
+        // 強化弾を持っているか
         private bool m_HasSpecialShell;
 
+        // 強化倍率
         private float m_SpecialShellMultiplier = 1f;
 
 
@@ -111,13 +125,38 @@ namespace Tanks.Complete
         // ■ 外部参照用
         // =====================================================
 
+        // 現在のチャージ割合
         public float CurrentChargeRatio =>
             (m_CurrentLaunchForce - m_MinLaunchForce) /
             (m_MaxLaunchForce - m_MinLaunchForce);
 
+        // チャージ中か
         public bool IsCharging => m_IsCharging;
 
+        // CPU操作か
         public bool m_IsComputerControlled { get; set; } = false;
+
+
+        // =====================================================
+        // ■ Awake
+        // =====================================================
+
+        private void Awake()
+        {
+            // InputReader取得
+            m_InputReader =
+                GetComponent<InputReader>();
+
+
+            // 無かった場合
+            if (m_InputReader == null)
+            {
+                Debug.LogError(
+                    gameObject.name +
+                    " に InputReader がありません"
+                );
+            }
+        }
 
 
         // =====================================================
@@ -126,16 +165,41 @@ namespace Tanks.Complete
 
         private void OnEnable()
         {
-            m_CurrentLaunchForce = m_MinLaunchForce;
+            // 発射力初期化
+            m_CurrentLaunchForce =
+                m_MinLaunchForce;
 
-            m_BaseMinLaunchForce = m_MinLaunchForce;
+            // 最低威力保存
+            m_BaseMinLaunchForce =
+                m_MinLaunchForce;
+
+            // 発射状態リセット
+            m_Fired = false;
+
+            // チャージ停止
+            m_IsCharging = false;
+
+
+            // =================================================
+            // スライダー初期化
+            // =================================================
 
             if (m_AimSlider != null)
             {
-                m_AimSlider.minValue = m_MinLaunchForce;
-                m_AimSlider.maxValue = m_MaxLaunchForce;
-                m_AimSlider.value = m_MinLaunchForce;
+                m_AimSlider.minValue =
+                    m_MinLaunchForce;
+
+                m_AimSlider.maxValue =
+                    m_MaxLaunchForce;
+
+                m_AimSlider.value =
+                    m_MinLaunchForce;
             }
+
+
+            // =================================================
+            // 強化弾初期化
+            // =================================================
 
             m_HasSpecialShell = false;
 
@@ -162,6 +226,7 @@ namespace Tanks.Complete
 
         private void Update()
         {
+            // CPU操作かプレイヤー操作か
             if (m_IsComputerControlled)
             {
                 ComputerUpdate();
@@ -181,13 +246,18 @@ namespace Tanks.Complete
         {
             m_Fired = false;
 
-            m_CurrentLaunchForce = m_MinLaunchForce;
+            m_CurrentLaunchForce =
+                m_MinLaunchForce;
 
             m_IsCharging = true;
 
+
+            // チャージ音
             if (m_ShootingAudio != null)
             {
-                m_ShootingAudio.clip = m_ChargingClip;
+                m_ShootingAudio.clip =
+                    m_ChargingClip;
+
                 m_ShootingAudio.Play();
             }
         }
@@ -214,132 +284,127 @@ namespace Tanks.Complete
 
         private void HumanUpdate()
         {
+            // InputReader未取得
+            if (m_InputReader == null)
+            {
+                return;
+            }
+
+
             // =================================================
             // 入力取得
             // =================================================
 
-            bool firePressed = false;
+            bool firePressed =
+                m_InputReader.FirePressed;
 
-            bool fireHolding = false;
+            bool fireHolding =
+                m_InputReader.FireHeld;
 
-            bool fireReleased = false;
-
-
-            // -------------------------------------------------
-            // Player1
-            // Spaceキー
-            // -------------------------------------------------
-
-            if (playerID == 1)
-            {
-                firePressed =
-                    Keyboard.current.spaceKey.wasPressedThisFrame;
-
-                fireHolding =
-                    Keyboard.current.spaceKey.isPressed;
-
-                fireReleased =
-                    Keyboard.current.spaceKey.wasReleasedThisFrame;
-            }
-
-
-            // -------------------------------------------------
-            // Player2
-            // Enterキー
-            // -------------------------------------------------
-
-            else if (playerID == 2)
-            {
-                firePressed =
-                    Keyboard.current.enterKey.wasPressedThisFrame;
-
-                fireHolding =
-                    Keyboard.current.enterKey.isPressed;
-
-                fireReleased =
-                    Keyboard.current.enterKey.wasReleasedThisFrame;
-            }
+            bool fireReleased =
+                m_InputReader.FireReleased;
 
 
             // =================================================
-            // クールタイム
+            // クールタイム減少
             // =================================================
 
             if (m_ShotCooldownTimer > 0f)
             {
-                m_ShotCooldownTimer -= Time.deltaTime;
+                m_ShotCooldownTimer -=
+                    Time.deltaTime;
             }
 
 
             // =================================================
-            // UI更新
+            // 待機中UI
             // =================================================
 
-            if (m_AimSlider != null)
+            if (!m_IsCharging &&
+                m_AimSlider != null)
             {
-                m_AimSlider.value = m_BaseMinLaunchForce;
+                m_AimSlider.value =
+                    m_BaseMinLaunchForce;
             }
 
 
             // =================================================
-            // 最大チャージ到達
+            // ボタン押した瞬間
             // =================================================
 
-            if (m_CurrentLaunchForce >= m_MaxLaunchForce &&
-                !m_Fired)
+            if (m_ShotCooldownTimer <= 0f &&
+                firePressed &&
+                !m_IsCharging)
             {
-                m_CurrentLaunchForce = m_MaxLaunchForce;
-
-                Fire();
-            }
-
-
-            // =================================================
-            // 押した瞬間
-            // =================================================
-
-            else if (m_ShotCooldownTimer <= 0f &&
-                     firePressed)
-            {
+                // 発射状態リセット
                 m_Fired = false;
 
-                m_CurrentLaunchForce = m_MinLaunchForce;
+                // 最低威力から開始
+                m_CurrentLaunchForce =
+                    m_MinLaunchForce;
 
+                // チャージ開始
                 m_IsCharging = true;
 
+
+                // チャージ音
                 if (m_ShootingAudio != null)
                 {
-                    m_ShootingAudio.clip = m_ChargingClip;
+                    m_ShootingAudio.clip =
+                        m_ChargingClip;
+
                     m_ShootingAudio.Play();
                 }
             }
 
 
             // =================================================
-            // 長押し中
+            // チャージ中
             // =================================================
 
-            else if (fireHolding &&
-                     !m_Fired)
+            if (m_IsCharging &&
+                !m_Fired)
             {
+                // チャージ増加
                 m_CurrentLaunchForce +=
-                    m_ChargeSpeed * Time.deltaTime;
+                    m_ChargeSpeed *
+                    Time.deltaTime;
 
+
+                // 最大値制限
+                m_CurrentLaunchForce =
+                    Mathf.Clamp(
+                        m_CurrentLaunchForce,
+                        m_MinLaunchForce,
+                        m_MaxLaunchForce
+                    );
+
+
+                // UI更新
                 if (m_AimSlider != null)
                 {
-                    m_AimSlider.value = m_CurrentLaunchForce;
+                    m_AimSlider.value =
+                        m_CurrentLaunchForce;
                 }
-            }
 
 
-            // =================================================
-            // 離した瞬間
-            // =================================================
+                // 最大チャージで自動発射
+                if (m_CurrentLaunchForce >=
+                    m_MaxLaunchForce)
+                {
+                    Fire();
 
-            else if (fireReleased &&
-                     !m_Fired)
-            {
-                Fire();
+                    return;
+                }
+
+
+                // ボタン離した
+                if (fireReleased)
+                {
+                    Fire();
+
+                    return;
+                }
             }
         }
 
@@ -350,28 +415,40 @@ namespace Tanks.Complete
 
         private void ComputerUpdate()
         {
+            // UI更新
             if (m_AimSlider != null)
             {
-                m_AimSlider.value = m_BaseMinLaunchForce;
+                m_AimSlider.value =
+                    m_BaseMinLaunchForce;
             }
 
-            if (m_CurrentLaunchForce >= m_MaxLaunchForce &&
+
+            // 最大チャージ到達
+            if (m_CurrentLaunchForce >=
+                m_MaxLaunchForce &&
                 !m_Fired)
             {
-                m_CurrentLaunchForce = m_MaxLaunchForce;
+                m_CurrentLaunchForce =
+                    m_MaxLaunchForce;
 
                 Fire();
             }
 
+
+            // チャージ中
             else if (m_IsCharging &&
                      !m_Fired)
             {
                 m_CurrentLaunchForce +=
-                    m_ChargeSpeed * Time.deltaTime;
+                    m_ChargeSpeed *
+                    Time.deltaTime;
 
+
+                // UI更新
                 if (m_AimSlider != null)
                 {
-                    m_AimSlider.value = m_CurrentLaunchForce;
+                    m_AimSlider.value =
+                        m_CurrentLaunchForce;
                 }
             }
         }
@@ -383,31 +460,47 @@ namespace Tanks.Complete
 
         private void Fire()
         {
+            // 弾Prefab未設定
             if (m_Shell == null)
             {
-                Debug.LogError("m_Shell が設定されていません");
+                Debug.LogError(
+                    "m_Shell が設定されていません"
+                );
+
                 return;
             }
 
+
+            // 発射位置未設定
             if (m_FireTransform == null)
             {
-                Debug.LogError("m_FireTransform が設定されていません");
+                Debug.LogError(
+                    "m_FireTransform が設定されていません"
+                );
+
                 return;
             }
 
+
+            // 発射済み
             m_Fired = true;
 
+            // チャージ終了
             m_IsCharging = false;
 
 
             // =================================================
-            // 砲身の少し前に生成
+            // 生成位置
             // =================================================
 
             Vector3 spawnPos =
                 m_FireTransform.position +
                 m_FireTransform.forward * 2f;
 
+
+            // =================================================
+            // 弾生成
+            // =================================================
 
             Rigidbody shellInstance =
                 Instantiate(
@@ -433,6 +526,7 @@ namespace Tanks.Complete
             ShellExplosion explosionData =
                 shellInstance.GetComponent<ShellExplosion>();
 
+
             if (explosionData != null)
             {
                 explosionData.m_ExplosionForce =
@@ -445,10 +539,7 @@ namespace Tanks.Complete
                     m_MaxDamage;
 
 
-                // =============================================
-                // 強化弾
-                // =============================================
-
+                // 強化弾処理
                 if (m_HasSpecialShell)
                 {
                     explosionData.m_MaxDamage *=
@@ -458,14 +549,19 @@ namespace Tanks.Complete
 
                     m_SpecialShellMultiplier = 1f;
 
+
+                    // PowerUp解除
                     PowerUpDetector powerUpDetector =
                         GetComponent<PowerUpDetector>();
 
                     if (powerUpDetector != null)
                     {
-                        powerUpDetector.m_HasActivePowerUp = false;
+                        powerUpDetector.m_HasActivePowerUp =
+                            false;
                     }
 
+
+                    // HUD非表示
                     PowerUpHUD powerUpHUD =
                         GetComponentInChildren<PowerUpHUD>();
 
@@ -483,7 +579,9 @@ namespace Tanks.Complete
 
             if (m_ShootingAudio != null)
             {
-                m_ShootingAudio.clip = m_FireClip;
+                m_ShootingAudio.clip =
+                    m_FireClip;
+
                 m_ShootingAudio.Play();
             }
 
@@ -492,9 +590,11 @@ namespace Tanks.Complete
             // リセット
             // =================================================
 
-            m_CurrentLaunchForce = m_MinLaunchForce;
+            m_CurrentLaunchForce =
+                m_MinLaunchForce;
 
-            m_ShotCooldownTimer = m_ShotCooldown;
+            m_ShotCooldownTimer =
+                m_ShotCooldown;
         }
 
 
@@ -502,11 +602,13 @@ namespace Tanks.Complete
         // ■ 強化弾装備
         // =====================================================
 
-        public void EquipSpecialShell(float damageMultiplier)
+        public void EquipSpecialShell(
+            float damageMultiplier)
         {
             m_HasSpecialShell = true;
 
-            m_SpecialShellMultiplier = damageMultiplier;
+            m_SpecialShellMultiplier =
+                damageMultiplier;
         }
 
 
@@ -514,13 +616,17 @@ namespace Tanks.Complete
         // ■ 着弾予測位置取得
         // =====================================================
 
-        public Vector3 GetProjectilePosition(float chargingLevel)
+        public Vector3 GetProjectilePosition(
+            float chargingLevel)
         {
+            // 発射位置未設定
             if (m_FireTransform == null)
             {
                 return transform.position;
             }
 
+
+            // 発射力補間
             float chargeLevel =
                 Mathf.Lerp(
                     m_MinLaunchForce,
@@ -528,24 +634,37 @@ namespace Tanks.Complete
                     chargingLevel
                 );
 
+
+            // 初速
             Vector3 velocity =
                 chargeLevel *
                 m_FireTransform.forward;
 
-            float a = 0.5f * Physics.gravity.y;
 
-            float b = velocity.y;
+            // 放物線計算
+            float a =
+                0.5f * Physics.gravity.y;
 
-            float c = m_FireTransform.position.y;
+            float b =
+                velocity.y;
 
+            float c =
+                m_FireTransform.position.y;
+
+
+            // 判別式
             float sqrtContent =
                 b * b - 4 * a * c;
 
+
+            // 解無し
             if (sqrtContent <= 0)
             {
                 return m_FireTransform.position;
             }
 
+
+            // 二次方程式
             float answer1 =
                 (-b + Mathf.Sqrt(sqrtContent)) /
                 (2 * a);
@@ -554,11 +673,15 @@ namespace Tanks.Complete
                 (-b - Mathf.Sqrt(sqrtContent)) /
                 (2 * a);
 
+
+            // 正の解
             float answer =
                 answer1 > 0 ?
                 answer1 :
                 answer2;
 
+
+            // 着弾位置
             Vector3 position =
                 m_FireTransform.position +
                 new Vector3(
@@ -567,6 +690,8 @@ namespace Tanks.Complete
                     velocity.z
                 ) * answer;
 
+
+            // 地面高さ
             position.y = 0;
 
             return position;

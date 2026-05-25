@@ -5,145 +5,297 @@ namespace Tanks.Complete
 {
     public class TankHealth : MonoBehaviour
     {
-        public float m_StartingHealth = 100f;               // The amount of health each tank starts with.
-        public Slider m_Slider;                             // The slider to represent how much health the tank currently has.
-        public Image m_FillImage;                           // The image component of the slider.
-        public Color m_FullHealthColor = Color.green;    // The color the health bar will be when on full health.
-        public Color m_ZeroHealthColor = Color.red;      // The color the health bar will be when on no health.
-        public GameObject m_ExplosionPrefab;                // A prefab that will be instantiated in Awake, then used whenever the tank dies.
-        [HideInInspector] public bool m_HasShield;          // Has the tank picked up a shield power up?
-        
-        
-        private AudioSource m_ExplosionAudio;               // The audio source to play when the tank explodes.
-        private ParticleSystem m_ExplosionParticles;        // The particle system the will play when the tank is destroyed.
-        private float m_CurrentHealth;                      // How much health the tank currently has.
-        private bool m_Dead;                                // Has the tank been reduced beyond zero health yet?
-        private float m_ShieldValue;                        // Percentage of reduced damage when the tank has a shield.
-        private bool m_IsInvincible;                        // Is the tank invincible in this moment?
+        // =====================================================
+        // ■ HP関連
+        // =====================================================
 
-        private void Awake ()
+        // タンクの最大HP
+        public float m_StartingHealth = 100f;
+
+        // HPバー本体（Slider）
+        public Slider m_Slider;
+
+        // HPバーの色部分
+        public Image m_FillImage;
+
+        // HP満タン時の色
+        public Color m_FullHealthColor = Color.green;
+
+        // HP0時の色
+        public Color m_ZeroHealthColor = Color.red;
+
+        // 爆発エフェクトPrefab
+        public GameObject m_ExplosionPrefab;
+
+        // シールドを持っているか
+        [HideInInspector]
+        public bool m_HasShield;
+
+
+        // =====================================================
+        // ■ 内部管理用
+        // =====================================================
+
+        // 爆発音
+        private AudioSource m_ExplosionAudio;
+
+        // 爆発パーティクル
+        private ParticleSystem m_ExplosionParticles;
+
+        // 現在のHP
+        private float m_CurrentHealth;
+
+        // 死亡済みか
+        private bool m_Dead;
+
+        // シールド軽減率
+        // 例：0.5f → ダメージ半減
+        private float m_ShieldValue;
+
+        // 無敵状態か
+        private bool m_IsInvincible;
+
+
+        // =====================================================
+        // ■ Awake
+        // =====================================================
+
+        private void Awake()
         {
-            // Instantiate the explosion prefab and get a reference to the particle system on it.
-            m_ExplosionParticles = Instantiate (m_ExplosionPrefab).GetComponent<ParticleSystem> ();
+            // 爆発エフェクト生成
+            m_ExplosionParticles =
+                Instantiate(m_ExplosionPrefab)
+                .GetComponent<ParticleSystem>();
 
-            // Get a reference to the audio source on the instantiated prefab.
-            m_ExplosionAudio = m_ExplosionParticles.GetComponent<AudioSource> ();
 
-            // Disable the prefab so it can be activated when it's required.
-            m_ExplosionParticles.gameObject.SetActive (false);
-            
-            // Set the slider max value to the max health the tank can have
-            m_Slider.maxValue = m_StartingHealth;
+            // 爆発音取得
+            m_ExplosionAudio =
+                m_ExplosionParticles
+                .GetComponent<AudioSource>();
+
+
+            // 最初は非表示
+            m_ExplosionParticles
+                .gameObject
+                .SetActive(false);
+
+
+            // HPバーの最大値設定
+            m_Slider.maxValue =
+                m_StartingHealth;
         }
+
+
+        // =====================================================
+        // ■ オブジェクト削除時
+        // =====================================================
 
         private void OnDestroy()
         {
-            if(m_ExplosionParticles != null)
-                Destroy(m_ExplosionParticles.gameObject);
+            // 生成した爆発エフェクト削除
+            if (m_ExplosionParticles != null)
+            {
+                Destroy(
+                    m_ExplosionParticles.gameObject
+                );
+            }
         }
+
+
+        // =====================================================
+        // ■ 有効化時
+        // =====================================================
 
         private void OnEnable()
         {
-            // When the tank is enabled, reset the tank's health and whether or not it's dead.
-            m_CurrentHealth = m_StartingHealth;
+            // HP初期化
+            m_CurrentHealth =
+                m_StartingHealth;
+
+            // 死亡状態解除
             m_Dead = false;
+
+            // シールド解除
             m_HasShield = false;
+
+            // シールド値初期化
             m_ShieldValue = 0;
+
+            // 無敵解除
             m_IsInvincible = false;
 
-            // Update the health slider's value and color.
+
+            // HPバー更新
             SetHealthUI();
         }
 
 
-        public void TakeDamage (float amount)
+        // =====================================================
+        // ■ ダメージ処理
+        // =====================================================
+
+        public void TakeDamage(float amount)
         {
-            // Check if the tank is not invincible
+            // 無敵中ならダメージを受けない
             if (!m_IsInvincible)
             {
-                // Reduce current health by the amount of damage done.
-                m_CurrentHealth -= amount * (1 - m_ShieldValue);
+                // シールド軽減込みでHP減少
+                m_CurrentHealth -=
+                    amount *
+                    (1 - m_ShieldValue);
 
-                // Change the UI elements appropriately.
-                SetHealthUI ();
 
-                // If the current health is at or below zero and it has not yet been registered, call OnDeath.
-                if (m_CurrentHealth <= 0f && !m_Dead)
+                // HPバー更新
+                SetHealthUI();
+
+
+                // HPが0以下なら死亡
+                if (m_CurrentHealth <= 0f &&
+                    !m_Dead)
                 {
-                    OnDeath ();
+                    OnDeath();
                 }
             }
         }
 
 
+        // =====================================================
+        // ■ HP回復
+        // =====================================================
+
         public void IncreaseHealth(float amount)
         {
-            // Check if adding the amount would keep the health within the maximum limit
-            if (m_CurrentHealth + amount <= m_StartingHealth)
+            // 回復後も最大HP以下なら加算
+            if (m_CurrentHealth + amount <=
+                m_StartingHealth)
             {
-                // If the new health value is within the limit, add the amount
                 m_CurrentHealth += amount;
             }
+
+            // 最大HPを超える場合
             else
             {
-                // If the new health exceeds the starting health, set it at the maximum
-                m_CurrentHealth = m_StartingHealth;
+                // 最大値で止める
+                m_CurrentHealth =
+                    m_StartingHealth;
             }
 
-            // Change the UI elements appropriately.
+
+            // HPバー更新
             SetHealthUI();
         }
 
 
-        public void ToggleShield (float shieldAmount)
-        {
-            // Inverts the value of has shield.
-            m_HasShield = !m_HasShield;
+        // =====================================================
+        // ■ シールドON/OFF
+        // =====================================================
 
-            // Stablish the amount of damage that will be reduced by the shield
+        public void ToggleShield(float shieldAmount)
+        {
+            // true / false を切り替える
+            m_HasShield =
+                !m_HasShield;
+
+
+            // =================================================
+            // シールドON
+            // =================================================
+
             if (m_HasShield)
             {
-                m_ShieldValue = shieldAmount;
+                // ダメージ軽減率設定
+                m_ShieldValue =
+                    shieldAmount;
             }
+
+            // =================================================
+            // シールドOFF
+            // =================================================
+
             else
             {
+                // 軽減無し
                 m_ShieldValue = 0;
             }
         }
 
+
+        // =====================================================
+        // ■ 無敵ON/OFF
+        // =====================================================
+
         public void ToggleInvincibility()
         {
-            m_IsInvincible = !m_IsInvincible;
+            // true / false 切り替え
+            m_IsInvincible =
+                !m_IsInvincible;
         }
 
 
-        private void SetHealthUI ()
-        {
-            // Set the slider's value appropriately.
-            m_Slider.value = m_CurrentHealth;
+        // =====================================================
+        // ■ HPバー更新
+        // =====================================================
 
-            // Interpolate the color of the bar between the choosen colours based on the current percentage of the starting health.
-            m_FillImage.color = Color.Lerp (m_ZeroHealthColor, m_FullHealthColor, m_CurrentHealth / m_StartingHealth);
+        private void SetHealthUI()
+        {
+            // Sliderの値更新
+            m_Slider.value =
+                m_CurrentHealth;
+
+
+            // =================================================
+            // HP割合に応じて色変更
+            // =================================================
+            // HP満タン → 緑
+            // HP0       → 赤
+            // 中間      → 黄色系
+            // =================================================
+
+            m_FillImage.color =
+                Color.Lerp(
+                    m_ZeroHealthColor,
+                    m_FullHealthColor,
+                    m_CurrentHealth /
+                    m_StartingHealth
+                );
         }
 
 
-        private void OnDeath ()
+        // =====================================================
+        // ■ 死亡処理
+        // =====================================================
+
+        private void OnDeath()
         {
-            // Set the flag so that this function is only called once.
+            // 二重実行防止
             m_Dead = true;
 
-            // Move the instantiated explosion prefab to the tank's position and turn it on.
-            m_ExplosionParticles.transform.position = transform.position;
-            m_ExplosionParticles.gameObject.SetActive (true);
 
-            // Play the particle system of the tank exploding.
-            m_ExplosionParticles.Play ();
+            // =================================================
+            // 爆発エフェクト位置設定
+            // =================================================
 
-            // Play the tank explosion sound effect.
+            m_ExplosionParticles
+                .transform.position =
+                transform.position;
+
+
+            // エフェクト有効化
+            m_ExplosionParticles
+                .gameObject
+                .SetActive(true);
+
+
+            // 爆発パーティクル再生
+            m_ExplosionParticles.Play();
+
+
+            // 爆発音再生
             m_ExplosionAudio.Play();
 
-            // Turn the tank off.
-            gameObject.SetActive (false);
+
+            // タンクを非表示（死亡）
+            gameObject.SetActive(false);
         }
     }
 }
