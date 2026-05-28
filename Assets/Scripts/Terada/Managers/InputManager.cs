@@ -1,5 +1,6 @@
 using UnityEngine;
 using PlayerInputActions;
+using NUnit.Framework.Internal.Filters;
 
 /// <summary>
 /// ƒvƒŒƒCƒ„[“ü—Íˆ—.
@@ -11,12 +12,19 @@ public class InputManager : MonoBehaviour
     PlayerInput_Actions actions;
 
     public Vector2 Move { get; private set; }
+
+    public bool Fire { get; private set; }
     public bool Jump { get; private set; }
     public bool Interact { get; private set; }
     public bool InteractPressed { get; private set; }
 
     void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
@@ -32,6 +40,9 @@ public class InputManager : MonoBehaviour
         actions.Player.Interact.canceled += ctx => Interact = false;
 
         actions.Player.Interact.performed += ctx => InteractPressed = true;
+
+        actions.Player.Fire.performed += ctx => Fire = true;
+        actions.Player.Fire.canceled += ctx => Fire = false;
     }
 
     void OnEnable()
@@ -44,11 +55,6 @@ public class InputManager : MonoBehaviour
     {
         actions.Disable();
     }
-
-    //private void LateUpdate()
-    //{
-    //    InteractPressed = false;
-    //}
 
     public bool ConsumeInteractPressed()
     {

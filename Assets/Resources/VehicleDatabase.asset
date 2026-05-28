@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e825d5ef79777654398768c52eaa580e, type: 3}
+  m_Name: VehicleDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleDatabase
+  vehicles:
+  - vehicleName: TankVehicle
+    icon: {fileID: 21300000, guid: 1bd05219bfe9dcb44992598d5adbb00f, type: 3}
+    prefab:
+      RawGuidValue: ccf7df6188620d44d9695213b38c0935
+    maxSpeed: 20
+  - vehicleName: testCar2
+    icon: {fileID: 21300000, guid: 801c76c41c180d1469ac4a747b3cd9f2, type: 3}
+    prefab:
+      RawGuidValue: a1e0647b2910d814098ff8ae5439b500
+    maxSpeed: 20
+  - vehicleName: testCar3
+    icon: {fileID: 21300000, guid: 56f59400781d1b84a8e44d668e2b1dde, type: 3}
+    prefab:
+      RawGuidValue: 8bbe2e190981b7648aefdadc067d67b3
+    maxSpeed: 30

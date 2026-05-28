@@ -1,301 +1,553 @@
 using Fusion;
 using Fusion.Sockets;
-using System.Collections.Generic;
 using System;
-using UnityEngine;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Collections;
+using UnityEngine;
 
-/// <summary>
-/// Fusionを直接触る.
-//  通信接続, Runner生成
-//  Lobby接続, Room接続
-//  Fusion Callback管理
-/// </summary>
 public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 {
     public static NetworkManager Instance;
+
     public NetworkRunner Runner { get; private set; }
 
-    [SerializeField] private NetworkRunner networkRunnerPrefab;
+    [SerializeField]
+    NetworkRunner networkRunnerPrefab;
 
-    // イベント定義.
+    // -------------------------
+    // Event
+    // -------------------------
+
     public event Action<List<SessionInfo>> OnSessionListChanged;
+
     public event Action OnLobbyJoined;
+
     public event Action<PlayerRef> OnPlayerJoinedEvent;
+
     public event Action<PlayerRef> OnPlayerLeftEvent;
 
+    // -------------------------
+    // State
+    // -------------------------
+
     string currentRoom;
-    bool isReconnecting;
-    bool wasInRoom;
-    bool isSelfShutdown;    // Runner切り替え時の手動シャットダウン中のフラグ.
+
     bool isConnecting;
+
+    bool isSelfShutdown;
+
+    bool isReconnecting;
+    int reconnectCount;
+
+    const int maxReconnect = 5;
+
+    const float timeoutSeconds = 10f;
+
+    ConnectMode lastConnectMode;
+
+    CancellationTokenSource connectCTS;
+    CancellationTokenSource reconnectCTS;
+
+    // -------------------------
+    // Unity
+    // -------------------------
 
     void Awake()
     {
-        if (Instance != null) { Destroy(gameObject); return; }
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
 
         DontDestroyOnLoad(gameObject);
     }
 
-    public void JoinLobby()
+    async void OnDestroy()
     {
-        ConnectionManager.Instance.ConnectingLobby();
-        StartCoroutine(ChangeToLobby());
+        connectCTS?.Cancel();
+        reconnectCTS?.Cancel();
+        reconnectCTS?.Dispose();
+
+        await ShutdownRunnerAsync();
     }
 
-    IEnumerator JoinLobbyRoutine()
-    {
-        Runner = Instantiate(networkRunnerPrefab);  // NetworkRunner作成.
-        Runner.AddCallbacks(this);  // NetworkRunnnerのコールバック対象に追加.
-        Task<StartGameResult> task = Runner.JoinSessionLobby(SessionLobby.Shared);  // Lobby接続.
-        while (!task.IsCompleted)
-            yield return null;
+    // -------------------------
+    // Public
+    // -------------------------
 
-        StartGameResult result = task.Result;
-        if (result.Ok)
-        {
-            isReconnecting = false;
-            Debug.Log("Connected to lobby");
-            ConnectionManager.Instance.SetState(ConnectionState.InLobby);
-            OnLobbyJoined?.Invoke();    // イベント通知.
-        }
-        else
-        {
-            Debug.Log("Failed to connect to lobby");
-        }
+    public async void JoinLobby()
+    {
+        lastConnectMode = ConnectMode.Lobby;
+
+        SetState(ConnectionState.ConnectingLobby);
+
+        await ChangeConnectionAsync();
     }
 
-    IEnumerator ChangeToLobby()
-    {
-        yield return ShutdownRunner();
-        yield return JoinLobbyRoutine();
-    }
-
-    public void CreateRoom(string roomName)
+    public async void CreateRoom(string roomName)
     {
         currentRoom = roomName;
-        wasInRoom = true;
 
-        ConnectionManager.Instance.ConnectingRoom();
-        StartCoroutine(ChangeToCreateRoom(roomName));
+        lastConnectMode = ConnectMode.RoomHost;
+
+        SetState(ConnectionState.ConnectingRoom);
+
+        await ChangeConnectionAsync();
     }
 
-    IEnumerator CreateRoomRoutine(string roomName)
+    public async void JoinRoom(string roomName)
     {
-        Runner = Instantiate(networkRunnerPrefab);
-        Runner.AddCallbacks(this);
+        currentRoom = roomName;
 
-        var task = Runner.StartGame(new StartGameArgs()
+        lastConnectMode = ConnectMode.RoomClient;
+
+        SetState(ConnectionState.ConnectingRoom);
+
+        await ChangeConnectionAsync();
+    }
+
+    // -------------------------
+    // Main Connect
+    // -------------------------
+
+    async Task ChangeConnectionAsync()
+    {
+        connectCTS?.Cancel();
+
+        connectCTS = new CancellationTokenSource();
+
+        await ShutdownRunnerAsync();
+
+        bool success = await ConnectAsync(connectCTS.Token);
+        if (!success)
         {
-            GameMode = GameMode.Host,
-            SessionName = roomName,
-            PlayerCount = 4,
-            Scene = SceneRef.FromIndex(1)
-        });
-
-        while (!task.IsCompleted)
-            yield return null;
-
-        if (task.Result.Ok)
-        {
-            isReconnecting = false;
-            Debug.Log("Room Created: " + roomName);
-            ConnectionManager.Instance.JoinedRoom();
+            StartReconnect();
         }
     }
 
-    IEnumerator ChangeToCreateRoom(string roomName)
-    {
-        yield return ShutdownRunner();
-        yield return CreateRoomRoutine(roomName);
-    }
-
-    public void JoinRoom(string roomName)
-    {
-        currentRoom = roomName;
-        wasInRoom = true;
-
-        ConnectionManager.Instance.ConnectingRoom();
-        StartCoroutine(ChangeToJoinRoom(roomName));
-    }
-
-    IEnumerator JoinRoomRoutine(string roomName)
+    async Task<bool> ConnectAsync(
+        CancellationToken token)
     {
         if (isConnecting)
-            yield break;
+            return false;
 
         isConnecting = true;
 
-        // Room用のRunnerを作成.
-        Runner = Instantiate(networkRunnerPrefab);
-        Runner.AddCallbacks(this);
-
-        var task = Runner.StartGame(new StartGameArgs()
+        try
         {
-            GameMode = GameMode.AutoHostOrClient,
-            SessionName = roomName
-        });
+            NetworkRunner newRunner = Instantiate(networkRunnerPrefab);
 
-        while (!task.IsCompleted)
-            yield return null;
+            Runner = newRunner;
 
-        if (task.Result.Ok)
-        {
+            newRunner.AddCallbacks(this);
+
+            Task<StartGameResult> connectTask;
+
+            // -------------------------
+            // Lobby
+            // -------------------------
+
+            if (lastConnectMode ==
+                ConnectMode.Lobby)
+            {
+                connectTask =
+                    Runner.JoinSessionLobby(
+                        SessionLobby.Shared);
+            }
+
+            // -------------------------
+            // Room
+            // -------------------------
+
+            else
+            {
+                StartGameArgs args =
+                    new StartGameArgs();
+
+                switch (lastConnectMode)
+                {
+                    case ConnectMode.RoomHost:
+
+                        args = new StartGameArgs()
+                        {
+                            GameMode = GameMode.Host,
+                            SessionName = currentRoom,
+                            PlayerCount = 4,
+                            Scene = SceneRef.FromIndex(1)
+                        };
+
+                        break;
+
+                    case ConnectMode.RoomClient:
+
+                        args = new StartGameArgs()
+                        {
+                            GameMode =
+                                GameMode.AutoHostOrClient,
+
+                            SessionName = currentRoom
+                        };
+
+                        break;
+                }
+
+                connectTask = Runner.StartGame(args);
+            }
+
+            // -------------------------
+            // Timeout
+            // -------------------------
+
+            Task timeoutTask =
+                Task.Delay(
+                    TimeSpan.FromSeconds(
+                        timeoutSeconds),
+                    token);
+
+            Task completed =
+                await Task.WhenAny(
+                    connectTask,
+                    timeoutTask);
+
+            // timeout
+            if (completed == timeoutTask)
+            {
+                Debug.LogError(
+                    "Connection Timeout");
+
+                newRunner.RemoveCallbacks(this);
+
+                if (Runner == newRunner)
+                {
+                    Runner = null;
+                }
+
+                Destroy(newRunner.gameObject);
+
+                return false;
+            }
+
+            StartGameResult result =
+                await connectTask;
+
+            // failed
+            if (!result.Ok)
+            {
+                Debug.LogError(
+                    $"Connect Failed: " +
+                    result.ShutdownReason);
+
+                newRunner.RemoveCallbacks(this);
+
+                if (Runner == newRunner)
+                {
+                    Runner = null;
+                }
+
+                Destroy(newRunner.gameObject);
+
+                return false;
+            }
+
+            // -------------------------
+            // Success
+            // -------------------------
+
+            reconnectCount = 0;
+
             isReconnecting = false;
-            Debug.Log("Joined Room: " + roomName);
-            ConnectionManager.Instance.JoinedRoom();
+
+            switch (lastConnectMode)
+            {
+                case ConnectMode.Lobby:
+
+                    Debug.Log(
+                        "Lobby Connected");
+
+                    SetState(
+                        ConnectionState.InLobby);
+
+                    OnLobbyJoined?.Invoke();
+
+                    break;
+
+                case ConnectMode.RoomHost:
+                case ConnectMode.RoomClient:
+
+                    Debug.Log(
+                        "Room Connected");
+
+                    SetState(
+                        ConnectionState.InRoom);
+
+                    break;
+            }
         }
-        else
+        catch (OperationCanceledException)
         {
-            Debug.Log(task.Result.ShutdownReason);
+            Debug.Log(
+                "Connection Cancelled");
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+
+            return false;
+        }
+        finally
+        {
+            isConnecting = false;
         }
 
-        isConnecting = false;
+        return true;
     }
 
-    IEnumerator ChangeToJoinRoom(string roomName)
-    {
-        yield return ShutdownRunner();
-        yield return JoinRoomRoutine(roomName);
-    }
+    // -------------------------
+    // Shutdown
+    // -------------------------
 
-    IEnumerator ShutdownRunner()
+    async Task ShutdownRunnerAsync()
     {
         if (Runner == null)
-        {
-            yield break;
-        }
+            return;
+
+        SetState(
+            ConnectionState.Disconnecting);
 
         isSelfShutdown = true;
 
-        var oldRunner = Runner;
+        NetworkRunner oldRunner = Runner;
+
         Runner = null;
-
-        var task = oldRunner.Shutdown();
-
-        while (!task.IsCompleted)
-            yield return null;
-    }
-
-    // 再接続.
-    IEnumerator ReconnectRoutine()
-    {
-        ConnectionManager.Instance.SetState(ConnectionState.Reconnecting);
-
-        yield return new WaitForSeconds(2f);
-
-        yield return ShutdownRunner();
-
-        if (wasInRoom && !string.IsNullOrEmpty(currentRoom))
+        try
         {
-            yield return JoinRoomRoutine(currentRoom);
+            await oldRunner.Shutdown();
         }
-        else
+        catch (Exception e)
         {
-            yield return JoinLobbyRoutine();
+            Debug.LogWarning(e);
         }
 
+        Destroy(oldRunner.gameObject);
+
+        await Task.Yield();
+
+        isSelfShutdown = false;
     }
 
-    // ↓Fusionの各コールバック関数.
-    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
+    // -------------------------
+    // Reconnect
+    // -------------------------
+
+    async void StartReconnect()
     {
-        OnSessionListChanged?.Invoke(sessionList);  // RoomList更新を通知.
+        if (isReconnecting)
+            return;
+
+        isReconnecting = true;
+
+        reconnectCTS?.Cancel();
+        reconnectCTS?.Dispose();
+
+        reconnectCTS = new CancellationTokenSource();
+
+        SetState(ConnectionState.Reconnecting);
+
+        try
+        {
+            while (reconnectCount < maxReconnect)
+            {
+                reconnectCount++;
+
+                float waitTime =
+                    Mathf.Min(
+                        2f * Mathf.Pow(
+                            2f, reconnectCount - 1),
+                        30f);
+
+                Debug.Log($"Reconnect Wait: {waitTime}");
+
+                await Task.Delay(
+                    TimeSpan.FromSeconds(waitTime),
+                    reconnectCTS.Token);
+
+                connectCTS?.Cancel();
+                connectCTS?.Dispose();
+
+                connectCTS = new CancellationTokenSource();
+
+                await ShutdownRunnerAsync();
+
+                bool success = await ConnectAsync(connectCTS.Token);
+
+                if (success)
+                {
+                    reconnectCount = 0;
+                    return;
+                }
+            }
+
+            SetState(ConnectionState.Failed);
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.Log("Reconnect Canceled");
+        }
+        finally
+        {
+            isReconnecting = false;
+        }
     }
 
-    // プレイヤー参加
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    // -------------------------
+    // State
+    // -------------------------
+
+    void SetState(ConnectionState state)
+    {
+        ConnectionManager.Instance
+            .SetState(state);
+    }
+
+    // -------------------------
+    // Fusion Callback
+    // -------------------------
+
+    public void OnSessionListUpdated(
+        NetworkRunner runner,
+        List<SessionInfo> sessionList)
+    {
+        OnSessionListChanged?.Invoke(
+            sessionList);
+    }
+
+    public void OnPlayerJoined(
+        NetworkRunner runner,
+        PlayerRef player)
     {
         OnPlayerJoinedEvent?.Invoke(player);
     }
 
-    // プレイヤー退出
-    public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+    public void OnPlayerLeft(
+        NetworkRunner runner,
+        PlayerRef player)
     {
         OnPlayerLeftEvent?.Invoke(player);
     }
 
-    void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-    void INetworkRunnerCallbacks.OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+    void INetworkRunnerCallbacks.OnShutdown(
+        NetworkRunner runner,
+        ShutdownReason shutdownReason)
+    {
+        Debug.Log(
+            $"Shutdown: {shutdownReason}");
 
-    /// <summary>
-    /// Fusionの入力同期.
-    /// </summary>
-    /// <param name="runner"></param>
-    /// <param name="input"></param>
-    void INetworkRunnerCallbacks.OnInput(NetworkRunner runner, NetworkInput input)
+        if (shutdownReason == ShutdownReason.Ok)
+            return;
+
+        if (isSelfShutdown || isReconnecting)
+            return;
+
+        StartReconnect();
+    }
+
+    void INetworkRunnerCallbacks
+        .OnDisconnectedFromServer(
+        NetworkRunner runner,
+        NetDisconnectReason reason)
+    {
+        Debug.LogWarning(
+            $"Disconnected: {reason}");
+
+        if (isSelfShutdown || isReconnecting)
+            return;
+
+        StartReconnect();
+    }
+
+    void INetworkRunnerCallbacks
+        .OnConnectFailed(
+        NetworkRunner runner,
+        NetAddress remoteAddress,
+        NetConnectFailedReason reason)
+    {
+        Debug.LogError(
+            $"Connect Failed: {reason}");
+
+        if (isSelfShutdown || isReconnecting)
+            return;
+
+        StartReconnect();
+    }
+
+    // -------------------------
+    // Input
+    // -------------------------
+
+    void INetworkRunnerCallbacks.OnInput(
+        NetworkRunner runner,
+        NetworkInput input)
     {
         var data = new PlayerInputData();
 
         if (InputManager.Instance != null)
         {
-            // InputManagerの入力を取得.
-            data.Throttle = InputManager.Instance.Move.y;   // 前後.
-            data.Steering = InputManager.Instance.Move.x;   // 左右.
-            data.Buttons.Set(NetworkInputButtons.Jump, InputManager.Instance.Jump); // ジャンプ.
+            data.Throttle =
+                InputManager.Instance.Move.y;
+
+            data.Steering =
+                InputManager.Instance.Move.x;
+
+            data.Buttons.Set(
+                NetworkInputButtons.Jump,
+                InputManager.Instance.Jump);
+
+            data.Buttons.Set(
+                NetworkInputButtons.Fire,
+                InputManager.Instance.Fire);
+
+            data.Move = InputManager.Instance.Move;
         }
 
-        input.Set(data);    // Fusionへ送信.
+        input.Set(data);
     }
+
+    // -------------------------
+    // Empty Callback
+    // -------------------------
+
     void INetworkRunnerCallbacks.OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-    void INetworkRunnerCallbacks.OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
-    {
-        Debug.Log($"Shutdown: {shutdownReason}");
 
-        // Runner切り替えように閉じてる場合は無視.
-        if (isSelfShutdown)
-        {
-            isSelfShutdown = false;
-            return;
-        }
-
-        if (!isReconnecting)
-        {
-            isReconnecting = true;
-            StartCoroutine(ReconnectRoutine());
-        }
-    }
     void INetworkRunnerCallbacks.OnConnectedToServer(NetworkRunner runner) { }
-    void INetworkRunnerCallbacks.OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
-    {
-        Debug.LogWarning($"Disconnected: {reason}");
-        // Runner切り替えように閉じてる場合は無視.
-        if (isSelfShutdown)
-        {
-            isSelfShutdown = false;
-            return;
-        }
 
-        if (!isReconnecting)
-        {
-            isReconnecting = true;
-            StartCoroutine(ReconnectRoutine());
-        }
-    }
     void INetworkRunnerCallbacks.OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-    void INetworkRunnerCallbacks.OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
-    {
-        Debug.LogError($"Connection Failed: {reason}");
-        // Runner切り替えように閉じてる場合は無視.
-        if (isSelfShutdown)
-        {
-            isSelfShutdown = false;
-            return;
-        }
 
-        if (!isReconnecting)
-        {
-            isReconnecting = true;
-            StartCoroutine(ReconnectRoutine());
-        }
-    }
     void INetworkRunnerCallbacks.OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
+
     void INetworkRunnerCallbacks.OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+
     void INetworkRunnerCallbacks.OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+
     void INetworkRunnerCallbacks.OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
+
     void INetworkRunnerCallbacks.OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
+
     void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner) { }
+
     void INetworkRunnerCallbacks.OnSceneLoadStart(NetworkRunner runner) { }
+
+    void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+
+    void INetworkRunnerCallbacks.OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+}
+
+public enum ConnectMode
+{
+    Lobby,
+    RoomHost,
+    RoomClient
 }

@@ -7,7 +7,9 @@ public class NetworkPlayer : NetworkBehaviour
 {
     [Networked] public NetworkString<_16> PlayerName { get; set; }
     [Networked] public bool IsReady { get; set; }
-    [Networked] public NetworkObject VehicleObject { get; set; }
+
+    [Networked, OnChangedRender(nameof(OnVehicleChanged))]
+    public NetworkObject VehicleObject { get; set; }
 
     [SerializeField] float interactDistance = 5f;
 
@@ -16,7 +18,7 @@ public class NetworkPlayer : NetworkBehaviour
 
     private NetworkCharacterController charactorController;
     private CameraFollow cam;
-    bool _cameraSet;
+    //bool _cameraSet;
 
     // 生成時に設定.
     public override void Spawned()
@@ -34,19 +36,6 @@ public class NetworkPlayer : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        // カメラ追従用にターゲットを自身に設定.
-        if (Object.HasInputAuthority && VehicleObject != null)
-        {
-            if (!_cameraSet)
-            {
-                //Camera.main.GetComponent<CameraFollow>()
-                //    .SetTarget(VehicleObject.transform);
-                cam.SetTarget(VehicleObject.transform);
-
-                _cameraSet = true;
-            }
-        }
-
         // 入力処理.
         if (GetInput(out PlayerInputData data))
         {
@@ -66,6 +55,17 @@ public class NetworkPlayer : NetworkBehaviour
             Debug.Log("IInteract Pressed");
             TryInteract();
         }
+    }
+
+    void OnVehicleChanged()
+    {
+        if (!Object.HasInputAuthority)
+            return;
+
+        if (VehicleObject == null)
+            return;
+
+        cam.SetTarget(VehicleObject.transform);
     }
 
     void TryInteract()
@@ -101,7 +101,7 @@ public class NetworkPlayer : NetworkBehaviour
     public void SetVehicle(NetworkObject vehicle)
     {
         VehicleObject = vehicle;
-        _cameraSet = false;
+        //_cameraSet = false;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
@@ -123,22 +123,26 @@ public class NetworkPlayer : NetworkBehaviour
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_ChangeVehicle(int vehicleID)
     {
+        Vector3 spawnPos = transform.position;
+
         // 現在の車を削除.
         if (VehicleObject != null)
         {
+            spawnPos = VehicleObject.transform.position;
             Runner.Despawn(VehicleObject);
         }
 
         // データベースからIDを取得.
-        var prefab = VehicleDatabase.Instance.Get(vehicleID);
+        var prefab = VehicleDatabase.Instance.GetPrefab(vehicleID);
 
         // 新しく生成し、Object を更新.
         var newVehicle = Runner.Spawn(
             prefab,
-            transform.position,
+            spawnPos,
             Quaternion.identity,
             Object.InputAuthority
         );
-        SetVehicle(newVehicle);
+        // Networked同期.
+        VehicleObject = newVehicle;
     }
 }
