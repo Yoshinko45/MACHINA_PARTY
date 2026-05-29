@@ -4,7 +4,16 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "VehicleDatabase", menuName = "Scriptable Objects/VehicleDatabase")]
 public class VehicleDatabase : ScriptableObject
 {
-    public NetworkPrefabRef[] vehicles;     // マシンのリスト.
+    [System.Serializable]
+    public class VehicleData
+    {
+        public string vehicleName;
+        public Sprite icon;
+        public NetworkPrefabRef prefab;
+        public float maxSpeed;
+    }
+
+    public VehicleData[] vehicles;     // マシンのリスト.
     static VehicleDatabase _instance;
 
     public static VehicleDatabase Instance
@@ -15,6 +24,8 @@ public class VehicleDatabase : ScriptableObject
             if (_instance == null)
             {
                 _instance = Resources.Load<VehicleDatabase>("VehicleDatabase");
+
+                Debug.Log(_instance);
             }
             return _instance;
         }
@@ -26,8 +37,13 @@ public class VehicleDatabase : ScriptableObject
     /// </summary>
     /// <param name="vehicleID"></param>
     /// <returns></returns>
-    public NetworkPrefabRef Get(int vehicleID)
+    public VehicleData Get(int vehicleID)
     {
         return vehicles[vehicleID];
+    }
+
+    public NetworkPrefabRef GetPrefab(int vehicleID)
+    {
+        return vehicles[vehicleID].prefab;
     }
 }

@@ -6,6 +6,7 @@ public struct PlayerInputData : INetworkInput
 {
     public float Throttle;  // ëOå„.
     public float Steering;  // ç∂âE.
+    public Vector2 Move;
     public NetworkButtons Buttons;
 }
 
@@ -13,6 +14,7 @@ public struct PlayerInputData : INetworkInput
 public enum NetworkInputButtons
 {
     Jump,
+    Fire,
     Boost,
     Drift,
     Item
