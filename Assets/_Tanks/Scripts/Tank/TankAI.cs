@@ -7,12 +7,24 @@ using Random = UnityEngine.Random;
 namespace Tanks.Complete
 {
     /// <summary>
-    /// CPUタンク用AI
+    /// =========================================================
+    /// ■ CPUタンクAI
+    /// =========================================================
     ///
-    /// ・最も近い敵を探す
-    /// ・NavMeshで追跡
-    /// ・射程内なら攻撃
-    /// ・近づきすぎたら逃走
+    /// 【このAIの役割】
+    /// ・一番近い敵を探す
+    /// ・NavMeshで追跡する
+    /// ・射程内なら弾を撃つ
+    /// ・近づきすぎたら逃げる
+    ///
+    /// 【動作の流れ】
+    /// Seek(追跡)
+    ///   ↓
+    /// 敵に近づきすぎる
+    ///   ↓
+    /// Flee(逃走)
+    ///   ↓
+    /// 一定距離逃げたらSeekへ戻る
     /// </summary>
     public class TankAI : MonoBehaviour
     {
@@ -22,10 +34,10 @@ namespace Tanks.Complete
 
         enum State
         {
-            // 敵を追いかける
+            // 敵を追跡する状態
             Seek,
 
-            // 敵から逃げる
+            // 敵から逃げる状態
             Flee
         }
 
@@ -34,10 +46,10 @@ namespace Tanks.Complete
         // ■ コンポーネント参照
         // =====================================================
 
-        // 移動処理
+        // タンク移動制御
         private TankMovement m_Movement;
 
-        // 射撃処理
+        // タンク射撃制御
         private TankShooting m_Shooting;
 
         // 実際の移動処理
@@ -48,7 +60,8 @@ namespace Tanks.Complete
         // ■ 経路探索関連
         // =====================================================
 
-        // 経路再計算間隔
+        // 経路再計算時間
+        // 0.5秒ごとに再探索
         private float m_PathfindTime = 0.5f;
 
         // 経路探索タイマー
@@ -60,7 +73,7 @@ namespace Tanks.Complete
         // 現在向かっているCorner番号
         private int m_CurrentCorner = 0;
 
-        // 移動中か
+        // 移動中かどうか
         private bool m_IsMoving = false;
 
 
@@ -71,7 +84,7 @@ namespace Tanks.Complete
         // 現在狙っている敵
         private Transform m_CurrentTarget = null;
 
-        // 全タンク一覧
+        // シーン内の全タンク
         private GameObject[] m_AllTanks;
 
         // 前回の敵位置
@@ -80,7 +93,7 @@ namespace Tanks.Complete
         // 敵が停止している時間
         private float m_TimeSinceLastTargetMove;
 
-        // 敵に近づいている時間
+        // 敵に近づき続けた時間
         private float m_TimeCloseToTarget;
 
 
@@ -102,7 +115,7 @@ namespace Tanks.Complete
         // ■ 逃走関連
         // =====================================================
 
-        // 前回の逃走位置
+        // 前回位置
         private Vector3 m_FleeingLastPosition;
 
         // 停止時間
@@ -110,10 +123,9 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ AI状態
+        // ■ 現在状態
         // =====================================================
 
-        // 現在の状態
         private State m_CurrentState = State.Seek;
 
 
@@ -123,13 +135,16 @@ namespace Tanks.Complete
 
         private void Awake()
         {
+            // =================================================
             // 無効状態なら処理しない
+            // =================================================
+
             if (!isActiveAndEnabled)
                 return;
 
 
             // =================================================
-            // コンポーネント取得
+            // 必要コンポーネント取得
             // =================================================
 
             m_Movement =
@@ -143,7 +158,7 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // CPU操作として設定
+            // CPU操作ON
             // =================================================
 
             m_Movement.m_IsComputerControlled = true;
@@ -152,8 +167,10 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 経路探索更新時間をランダム化
-            // CPU全員が同時更新しないようにする
+            // 経路探索更新タイミングをランダム化
+            //
+            // 全CPUが同時に計算すると重いので、
+            // 少しズラして負荷分散する
             // =================================================
 
             m_PathfindTime =
@@ -161,7 +178,9 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 最大射程距離を計算
+            // 最大射程距離計算
+            //
+            // 最大チャージ時にどこまで飛ぶか
             // =================================================
 
             m_MaxShootingDistance =
@@ -186,7 +205,7 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ GameManagerからセットアップ
+        // ■ GameManagerから初期化
         // =====================================================
 
         public void Setup(GameManager manager)
@@ -233,7 +252,7 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 状態別更新
+            // 状態別処理
             // =================================================
 
             switch (m_CurrentState)
@@ -261,12 +280,14 @@ namespace Tanks.Complete
 
             if (m_PathfindTimer > m_PathfindTime)
             {
+                // タイマーリセット
                 m_PathfindTimer = 0;
 
+                // 各敵へのPath
                 NavMeshPath[] paths =
                     new NavMeshPath[m_AllTanks.Length];
 
-                // 最短経路長
+                // 最短距離
                 float shortestPath = float.MaxValue;
 
                 // 使用するPath番号
@@ -288,7 +309,7 @@ namespace Tanks.Complete
                     if (tank == gameObject)
                         continue;
 
-                    // 無効オブジェクトは無視
+                    // 無効オブジェクト無視
                     if (tank == null ||
                         !tank.activeInHierarchy)
                         continue;
@@ -297,7 +318,7 @@ namespace Tanks.Complete
 
 
                     // =================================================
-                    // 経路計算
+                    // NavMesh経路計算
                     // =================================================
 
                     if (NavMesh.CalculatePath(
@@ -306,6 +327,7 @@ namespace Tanks.Complete
                             ~0,
                             paths[i]))
                     {
+                        // Path長さ計算
                         float length =
                             GetPathLength(paths[i]);
 
@@ -327,7 +349,7 @@ namespace Tanks.Complete
 
 
                 // =================================================
-                // ターゲット決定
+                // ターゲット確定
                 // =================================================
 
                 if (usedPath != -1)
@@ -341,14 +363,17 @@ namespace Tanks.Complete
                             m_CurrentTarget.position;
                     }
 
+                    // 現在ターゲット更新
                     m_CurrentTarget = target;
 
-                    // 現在の経路更新
+                    // 現在Path更新
                     m_CurrentPath = paths[usedPath];
 
-                    // Corner0は現在位置なので1から開始
+                    // Corner0は現在位置
+                    // Corner1から移動開始
                     m_CurrentCorner = 1;
 
+                    // 移動開始
                     m_IsMoving = true;
                 }
             }
@@ -361,7 +386,7 @@ namespace Tanks.Complete
             if (m_CurrentTarget != null)
             {
                 // =================================================
-                // 敵移動量確認
+                // 敵の移動量確認
                 // =================================================
 
                 float targetMovement =
@@ -371,7 +396,7 @@ namespace Tanks.Complete
                     );
 
 
-                // 敵が止まっている
+                // 敵が停止中
                 if (targetMovement < 0.001f)
                 {
                     m_TimeSinceLastTargetMove +=
@@ -384,6 +409,7 @@ namespace Tanks.Complete
                     m_TimeSinceLastTargetMove = 0;
                 }
 
+                // 前回位置保存
                 m_LastTargetPosition =
                     m_CurrentTarget.position;
 
@@ -415,10 +441,11 @@ namespace Tanks.Complete
                     m_TimeCloseToTarget +=
                         Time.deltaTime;
 
-                    // 2秒近距離維持で逃走
+                    // 2秒近距離なら逃走
                     if (m_TimeCloseToTarget > 2.0f)
                     {
                         StartFleeing();
+
                         return;
                     }
                 }
@@ -445,13 +472,13 @@ namespace Tanks.Complete
 
                 if (m_Shooting.IsCharging)
                 {
-                    // 現在の着弾位置取得
+                    // 現在の着弾地点
                     Vector3 currentShotTarget =
                         m_Shooting.GetProjectilePosition(
                             m_Shooting.CurrentChargeRatio
                         );
 
-                    // 現在の射程距離
+                    // 現在射程
                     float currentShotDistance =
                         Vector3.Distance(
                             currentShotTarget,
@@ -460,24 +487,24 @@ namespace Tanks.Complete
 
 
                     // =================================================
-                    // 射程到達 ＆ 正面なら発射
+                    // 射程到達 & 正面なら発射
                     // =================================================
 
                     if (currentShotDistance >= targetDistance - 2 &&
                         dotToTarget > 0.99f)
                     {
-                        // 一旦停止
+                        // 停止
                         m_IsMoving = false;
 
                         // 発射
                         m_Shooting.StopCharging();
 
-                        // クールタイム開始
+                        // クールタイム
                         m_ShotCooldown =
                             m_TimeBetweenShot;
 
 
-                        // 敵が止まり続けていたら逃走
+                        // 敵が止まっていたら逃走
                         if (m_TimeSinceLastTargetMove > 2.0f)
                         {
                             StartFleeing();
@@ -497,7 +524,8 @@ namespace Tanks.Complete
                     {
                         // =================================================
                         // 壁チェック
-                        // Raycast成功=falseなら壁無し
+                        //
+                        // Raycast失敗 = 壁なし
                         // =================================================
 
                         if (!NavMesh.Raycast(
@@ -509,7 +537,7 @@ namespace Tanks.Complete
                             // 停止して狙う
                             m_IsMoving = false;
 
-                            // クールタイム終了ならチャージ開始
+                            // クールタイム終了なら発射準備
                             if (m_ShotCooldown <= 0.0f)
                             {
                                 m_Shooting.StartCharging();
@@ -550,14 +578,14 @@ namespace Tanks.Complete
                 transform.position;
 
 
-            // 停止している
+            // 停止中
             if (distance < 0.001f)
             {
                 m_SinceLastFleeingMove +=
                     Time.deltaTime;
             }
 
-            // 動いている
+            // 移動中
             else
             {
                 m_SinceLastFleeingMove = 0;
@@ -581,9 +609,11 @@ namespace Tanks.Complete
 
         private void StartFleeing()
         {
+            // 現在位置保存
             m_FleeingLastPosition =
                 transform.position;
 
+            // 停止時間リセット
             m_SinceLastFleeingMove = 0.0f;
 
 
@@ -609,7 +639,7 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 逃走距離ランダム
+            // 逃走距離
             // =================================================
 
             toTarget *=
@@ -626,10 +656,13 @@ namespace Tanks.Complete
                     NavMesh.AllAreas,
                     m_CurrentPath))
             {
+                // 状態変更
                 m_CurrentState = State.Flee;
 
+                // Corner開始位置
                 m_CurrentCorner = 1;
 
+                // 移動開始
                 m_IsMoving = true;
             }
         }
@@ -641,7 +674,10 @@ namespace Tanks.Complete
 
         private void FixedUpdate()
         {
-            // 経路無し
+            // =================================================
+            // 経路無しなら終了
+            // =================================================
+
             if (m_CurrentPath == null ||
                 m_CurrentPath.corners.Length == 0)
                 return;
@@ -660,7 +696,10 @@ namespace Tanks.Complete
                 ];
 
 
-            // 移動停止中は敵方向を見る
+            // =================================================
+            // 停止中は敵を見る
+            // =================================================
+
             if (!m_IsMoving)
             {
                 orientTarget =
@@ -703,13 +742,17 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 移動処理
+            // 移動量計算
             // =================================================
 
             float moveAmount =
                 Mathf.Clamp01(orientDot) *
                 m_Movement.m_Speed;
 
+
+            // =================================================
+            // 移動処理
+            // =================================================
 
             if (m_IsMoving &&
                 moveAmount > 0.000001f)
@@ -760,7 +803,7 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ 経路長計算
+        // ■ 経路長さ計算
         // =====================================================
 
         float GetPathLength(NavMeshPath path)
@@ -768,7 +811,7 @@ namespace Tanks.Complete
             float dist = 0;
 
 
-            // Corner同士の距離を合計
+            // Corner同士の距離合計
             for (var i = 1;
                  i < path.corners.Length;
                  ++i)
