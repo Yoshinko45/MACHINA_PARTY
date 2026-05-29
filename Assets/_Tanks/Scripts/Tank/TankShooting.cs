@@ -529,6 +529,8 @@ namespace Tanks.Complete
 
             if (explosionData != null)
             {
+                 explosionData.SetOwner(gameObject);
+
                 explosionData.m_ExplosionForce =
                     m_ExplosionForce;
 

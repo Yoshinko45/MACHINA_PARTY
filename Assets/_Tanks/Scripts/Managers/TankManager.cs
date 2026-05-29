@@ -1,4 +1,5 @@
 ﻿using System;
+
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -9,6 +10,18 @@ using UnityEngine.UIElements;
 
 namespace Tanks.Complete
 {
+    // =========================================================
+    // ■ タンク管理クラス
+    // =========================================================
+    //
+    // ・プレイヤー情報管理
+    // ・入力設定
+    // ・CPU設定
+    // ・各コンポーネント管理
+    // ・ラウンド開始時の初期化
+    //
+    // =========================================================
+
     [Serializable]
     public class TankManager
     {
@@ -16,36 +29,30 @@ namespace Tanks.Complete
         // ■ プレイヤー情報
         // =====================================================
 
-        [HideInInspector]
-        public Color m_PlayerColor;
+        [Header("Player")]
+
         // プレイヤーカラー
+        public Color m_PlayerColor = Color.white;
 
-        public Transform m_SpawnPoint;
         // 出現位置
+        public Transform m_SpawnPoint;
 
-        [HideInInspector]
-        public int m_PlayerNumber;
         // プレイヤー番号
+        public int m_PlayerNumber = 1;
 
-        [HideInInspector]
-        public string m_ColoredPlayerText;
-        // UI表示用文字列
-
-        [HideInInspector]
+        // タンク本体
         public GameObject m_Instance;
-        // Tank本体
 
+        // 勝利数
         [HideInInspector]
         public int m_Wins;
-        // 勝利数
 
-        [HideInInspector]
-        public bool m_ComputerControlled;
         // CPU操作か
+        public bool m_ComputerControlled;
 
 
         // =====================================================
-        // ■ 入力番号
+        // ■ 入力設定
         // =====================================================
 
         /*
@@ -55,12 +62,22 @@ namespace Tanks.Complete
             4 = Gamepad2
         */
 
-        [HideInInspector]
+        [Header("Control")]
+
         public int ControlIndex = 1;
 
 
         // =====================================================
-        // ■ 各コンポーネント参照
+        // ■ UI表示用
+        // =====================================================
+
+        // プレイヤー名カラー文字列
+        [HideInInspector]
+        public string m_ColoredPlayerText;
+
+
+        // =====================================================
+        // ■ 各コンポーネント
         // =====================================================
 
         private TankMovement m_Movement;
@@ -69,9 +86,9 @@ namespace Tanks.Complete
 
         private InputReader m_InputReader;
 
-        private GameObject m_CanvasGameObject;
-
         private TankAI m_AI;
+
+        private GameObject m_CanvasGameObject;
 
 
         // =====================================================
@@ -81,7 +98,21 @@ namespace Tanks.Complete
         public void Setup(GameManager manager)
         {
             // =================================================
-            // コンポーネント取得
+            // タンク本体存在確認
+            // =================================================
+
+            if (m_Instance == null)
+            {
+                Debug.LogError(
+                    "TankManager : m_Instance が設定されていません"
+                );
+
+                return;
+            }
+
+
+            // =================================================
+            // 各コンポーネント取得
             // =================================================
 
             m_Movement =
@@ -96,10 +127,40 @@ namespace Tanks.Complete
             m_AI =
                 m_Instance.GetComponent<TankAI>();
 
-            m_CanvasGameObject =
-                m_Instance
-                .GetComponentInChildren<Canvas>()
-                .gameObject;
+
+            // =================================================
+            // Canvas取得
+            // =================================================
+
+            Canvas canvas =
+                m_Instance.GetComponentInChildren<Canvas>();
+
+
+            if (canvas != null)
+            {
+                m_CanvasGameObject =
+                    canvas.gameObject;
+            }
+            else
+            {
+                Debug.LogWarning(
+                    m_Instance.name +
+                    " に Canvas が見つかりません"
+                );
+            }
+
+
+            // =================================================
+            // InputReader確認
+            // =================================================
+
+            if (m_InputReader == null)
+            {
+                Debug.LogError(
+                    m_Instance.name +
+                    " に InputReader がありません"
+                );
+            }
 
 
             // =================================================
@@ -110,6 +171,10 @@ namespace Tanks.Complete
             {
                 m_Movement.m_IsComputerControlled =
                     m_ComputerControlled;
+
+                // プレイヤー番号設定
+                m_Movement.m_PlayerNumber =
+                    m_PlayerNumber;
             }
 
             if (m_Shooting != null)
@@ -120,30 +185,7 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // プレイヤー番号設定
-            // =================================================
-
-            if (m_Movement != null)
-            {
-                m_Movement.m_PlayerNumber =
-                    m_PlayerNumber;
-            }
-
-            // =================================================
-            // InputReaderへControlIndex設定
-            // =================================================
-
-            InputReader inputReader =
-                m_Instance.GetComponent<InputReader>();
-
-            if (inputReader != null)
-            {
-                inputReader.ControlIndex =
-                    ControlIndex;
-            }
-
-            // =================================================
-            // InputReaderへControlIndex設定
+            // 入力番号設定
             // =================================================
 
             if (m_InputReader != null)
@@ -166,7 +208,7 @@ namespace Tanks.Complete
                         m_Instance.AddComponent<TankAI>();
                 }
 
-                // AIセットアップ
+                // AI初期化
                 m_AI.Setup(manager);
             }
 
@@ -198,20 +240,51 @@ namespace Tanks.Complete
                 MeshRenderer renderer =
                     renderers[i];
 
+
+                // マテリアル一覧
+                Material[] materials =
+                    renderer.materials;
+
+
                 for (int j = 0;
-                     j < renderer.materials.Length;
-                     ++j)
+                     j < materials.Length;
+                     j++)
                 {
-                    // TankColorマテリアルなら
-                    if (renderer.materials[j]
-                        .name
-                        .Contains("TankColor"))
+                    Material mat =
+                        materials[j];
+
+
+                    // nullチェック
+                    if (mat == null)
                     {
-                        renderer.materials[j].color =
+                        continue;
+                    }
+
+
+                    // TankColorマテリアルなら色変更
+                    if (mat.name.Contains("TankColor"))
+                    {
+                        mat.color =
                             m_PlayerColor;
                     }
                 }
             }
+
+
+            // =================================================
+            // デバッグ表示
+            // =================================================
+
+            Debug.Log(
+                "Tank Setup 完了 : " +
+                m_Instance.name +
+                " / Player " +
+                m_PlayerNumber +
+                " / ControlIndex = " +
+                ControlIndex +
+                " / CPU = " +
+                m_ComputerControlled
+            );
         }
 
 
@@ -227,11 +300,13 @@ namespace Tanks.Complete
                 m_Movement.enabled = false;
             }
 
+
             // 発射停止
             if (m_Shooting != null)
             {
                 m_Shooting.enabled = false;
             }
+
 
             // AI停止
             if (m_ComputerControlled &&
@@ -239,6 +314,7 @@ namespace Tanks.Complete
             {
                 m_AI.enabled = false;
             }
+
 
             // UI非表示
             if (m_CanvasGameObject != null)
@@ -260,11 +336,13 @@ namespace Tanks.Complete
                 m_Movement.enabled = true;
             }
 
+
             // 発射有効
             if (m_Shooting != null)
             {
                 m_Shooting.enabled = true;
             }
+
 
             // AI有効
             if (m_ComputerControlled &&
@@ -272,6 +350,7 @@ namespace Tanks.Complete
             {
                 m_AI.enabled = true;
             }
+
 
             // UI表示
             if (m_CanvasGameObject != null)
@@ -287,19 +366,61 @@ namespace Tanks.Complete
 
         public void Reset()
         {
+            // =================================================
+            // SpawnPoint確認
+            // =================================================
+
+            if (m_SpawnPoint == null)
+            {
+                Debug.LogError(
+                    "SpawnPoint が設定されていません"
+                );
+
+                return;
+            }
+
+
+            // =================================================
+            // Tank確認
+            // =================================================
+
+            if (m_Instance == null)
+            {
+                Debug.LogError(
+                    "Tank Instance が存在しません"
+                );
+
+                return;
+            }
+
+
+            // =================================================
             // 位置リセット
+            // =================================================
+
             m_Instance.transform.position =
                 m_SpawnPoint.position;
 
+
+            // =================================================
             // 回転リセット
+            // =================================================
+
             m_Instance.transform.rotation =
                 m_SpawnPoint.rotation;
 
 
+            // =================================================
             // 一度OFF
+            // =================================================
+
             m_Instance.SetActive(false);
 
+
+            // =================================================
             // ONに戻す
+            // =================================================
+
             m_Instance.SetActive(true);
         }
     }
@@ -320,15 +441,99 @@ namespace Tanks.Complete
                 SerializedProperty property
             )
         {
-            // SpawnPointだけ表示
-            var itemSlot =
+            // =================================================
+            // Root
+            // =================================================
+
+            VisualElement root =
+                new VisualElement();
+
+
+            // =================================================
+            // SpawnPoint
+            // =================================================
+
+            root.Add(
                 new PropertyField(
                     property.FindPropertyRelative(
                         nameof(TankManager.m_SpawnPoint)
-                    )
-                );
+                    ),
+                    "Spawn Point"
+                )
+            );
 
-            return itemSlot;
+
+            // =================================================
+            // Player Number
+            // =================================================
+
+            root.Add(
+                new PropertyField(
+                    property.FindPropertyRelative(
+                        nameof(TankManager.m_PlayerNumber)
+                    ),
+                    "Player Number"
+                )
+            );
+
+
+            // =================================================
+            // Tank Instance
+            // =================================================
+
+            root.Add(
+                new PropertyField(
+                    property.FindPropertyRelative(
+                        nameof(TankManager.m_Instance)
+                    ),
+                    "Tank Prefab"
+                )
+            );
+
+
+            // =================================================
+            // Player Color
+            // =================================================
+
+            root.Add(
+                new PropertyField(
+                    property.FindPropertyRelative(
+                        nameof(TankManager.m_PlayerColor)
+                    ),
+                    "Player Color"
+                )
+            );
+
+
+            // =================================================
+            // CPU設定
+            // =================================================
+
+            root.Add(
+                new PropertyField(
+                    property.FindPropertyRelative(
+                        nameof(TankManager.m_ComputerControlled)
+                    ),
+                    "Computer Controlled"
+                )
+            );
+
+
+            // =================================================
+            // 入力番号
+            // =================================================
+
+            root.Add(
+                new PropertyField(
+                    property.FindPropertyRelative(
+                        nameof(TankManager.ControlIndex)
+                    ),
+                    "Control Index"
+                )
+            );
+
+
+            return root;
         }
     }
 

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace Tanks.Complete
@@ -8,6 +9,8 @@ namespace Tanks.Complete
         // =====================================================
         // ■ HP関連
         // =====================================================
+
+        [Header("Health")]
 
         // タンクの最大HP
         public float m_StartingHealth = 100f;
@@ -33,6 +36,29 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ 無敵時間設定
+        // =====================================================
+
+        [Header("Invincible")]
+
+        // 被弾後の無敵時間
+        public float m_InvincibleTime = 1.5f;
+
+        // 点滅間隔
+        public float m_BlinkInterval = 0.1f;
+
+
+        // =====================================================
+        // ■ HPバー演出設定
+        // =====================================================
+
+        [Header("Health Bar Animation")]
+
+        // HPバーが減る速度
+        public float m_HealthBarSmoothSpeed = 8f;
+
+
+        // =====================================================
         // ■ 内部管理用
         // =====================================================
 
@@ -45,15 +71,32 @@ namespace Tanks.Complete
         // 現在のHP
         private float m_CurrentHealth;
 
+        // HPバー表示用HP
+        private float m_DisplayHealth;
+
         // 死亡済みか
         private bool m_Dead;
 
         // シールド軽減率
-        // 例：0.5f → ダメージ半減
         private float m_ShieldValue;
 
         // 無敵状態か
         private bool m_IsInvincible;
+
+        // タンク内のRenderer一覧
+        private Renderer[] m_Renderers;
+
+        // 無敵Coroutine管理
+        private Coroutine m_InvincibleCoroutine;
+
+
+        // =====================================================
+        // ■ 外部参照用
+        // =====================================================
+
+        // 現在無敵中か
+        public bool IsInvincible =>
+            m_IsInvincible;
 
 
         // =====================================================
@@ -62,27 +105,58 @@ namespace Tanks.Complete
 
         private void Awake()
         {
+            // =================================================
             // 爆発エフェクト生成
-            m_ExplosionParticles =
-                Instantiate(m_ExplosionPrefab)
-                .GetComponent<ParticleSystem>();
+            // =================================================
+
+            if (m_ExplosionPrefab != null)
+            {
+                m_ExplosionParticles =
+                    Instantiate(m_ExplosionPrefab)
+                    .GetComponent<ParticleSystem>();
 
 
-            // 爆発音取得
-            m_ExplosionAudio =
+                // 爆発音取得
+                m_ExplosionAudio =
+                    m_ExplosionParticles
+                    .GetComponent<AudioSource>();
+
+
+                // 最初は非表示
                 m_ExplosionParticles
-                .GetComponent<AudioSource>();
+                    .gameObject
+                    .SetActive(false);
+            }
 
 
-            // 最初は非表示
-            m_ExplosionParticles
-                .gameObject
-                .SetActive(false);
+            // =================================================
+            // HPバー最大値設定
+            // =================================================
+
+            if (m_Slider != null)
+            {
+                m_Slider.maxValue =
+                    m_StartingHealth;
+            }
 
 
-            // HPバーの最大値設定
-            m_Slider.maxValue =
-                m_StartingHealth;
+            // =================================================
+            // Renderer取得
+            // =================================================
+
+            m_Renderers =
+                GetComponentsInChildren<Renderer>();
+        }
+
+
+        // =====================================================
+        // ■ Update
+        // =====================================================
+
+        private void Update()
+        {
+            // HPバー更新
+            SetHealthUI();
         }
 
 
@@ -92,7 +166,10 @@ namespace Tanks.Complete
 
         private void OnDestroy()
         {
+            // =================================================
             // 生成した爆発エフェクト削除
+            // =================================================
+
             if (m_ExplosionParticles != null)
             {
                 Destroy(
@@ -108,24 +185,54 @@ namespace Tanks.Complete
 
         private void OnEnable()
         {
+            // =================================================
             // HP初期化
+            // =================================================
+
             m_CurrentHealth =
                 m_StartingHealth;
 
+            m_DisplayHealth =
+                m_StartingHealth;
+
+
+            // =================================================
             // 死亡状態解除
+            // =================================================
+
             m_Dead = false;
 
+
+            // =================================================
             // シールド解除
+            // =================================================
+
             m_HasShield = false;
 
-            // シールド値初期化
-            m_ShieldValue = 0;
+            m_ShieldValue = 0f;
 
+
+            // =================================================
             // 無敵解除
+            // =================================================
+
             m_IsInvincible = false;
 
 
+            // =================================================
+            // Renderer表示ON
+            // =================================================
+
+            foreach (Renderer renderer in m_Renderers)
+            {
+                renderer.enabled = true;
+            }
+
+
+            // =================================================
             // HPバー更新
+            // =================================================
+
             SetHealthUI();
         }
 
@@ -136,26 +243,58 @@ namespace Tanks.Complete
 
         public void TakeDamage(float amount)
         {
-            // 無敵中ならダメージを受けない
-            if (!m_IsInvincible)
+            // =================================================
+            // 無敵中ならダメージ無効
+            // =================================================
+
+            if (m_IsInvincible ||
+                m_Dead)
             {
-                // シールド軽減込みでHP減少
-                m_CurrentHealth -=
-                    amount *
-                    (1 - m_ShieldValue);
-
-
-                // HPバー更新
-                SetHealthUI();
-
-
-                // HPが0以下なら死亡
-                if (m_CurrentHealth <= 0f &&
-                    !m_Dead)
-                {
-                    OnDeath();
-                }
+                return;
             }
+
+
+            // =================================================
+            // シールド軽減込みでHP減少
+            // =================================================
+
+            m_CurrentHealth =
+                Mathf.Max(
+                    m_CurrentHealth -
+                    amount *
+                    (1f - m_ShieldValue),
+                    0f
+                );
+
+
+            // =================================================
+            // HP0以下なら死亡
+            // =================================================
+
+            if (m_CurrentHealth <= 0f)
+            {
+                OnDeath();
+
+                return;
+            }
+
+
+            // =================================================
+            // 無敵Coroutine再起動
+            // =================================================
+
+            if (m_InvincibleCoroutine != null)
+            {
+                StopCoroutine(
+                    m_InvincibleCoroutine
+                );
+            }
+
+
+            m_InvincibleCoroutine =
+                StartCoroutine(
+                    InvincibleRoutine()
+                );
         }
 
 
@@ -165,36 +304,28 @@ namespace Tanks.Complete
 
         public void IncreaseHealth(float amount)
         {
-            // 回復後も最大HP以下なら加算
-            if (m_CurrentHealth + amount <=
-                m_StartingHealth)
-            {
-                m_CurrentHealth += amount;
-            }
+            // =================================================
+            // 最大HPを超えないように回復
+            // =================================================
 
-            // 最大HPを超える場合
-            else
-            {
-                // 最大値で止める
-                m_CurrentHealth =
-                    m_StartingHealth;
-            }
-
-
-            // HPバー更新
-            SetHealthUI();
+            m_CurrentHealth =
+                Mathf.Clamp(
+                    m_CurrentHealth + amount,
+                    0f,
+                    m_StartingHealth
+                );
         }
 
 
         // =====================================================
-        // ■ シールドON/OFF
+        // ■ シールド設定
         // =====================================================
 
-        public void ToggleShield(float shieldAmount)
+        public void SetShield(
+            bool enabled,
+            float shieldAmount = 0f)
         {
-            // true / false を切り替える
-            m_HasShield =
-                !m_HasShield;
+            m_HasShield = enabled;
 
 
             // =================================================
@@ -203,10 +334,12 @@ namespace Tanks.Complete
 
             if (m_HasShield)
             {
-                // ダメージ軽減率設定
                 m_ShieldValue =
-                    shieldAmount;
+                    Mathf.Clamp01(
+                        shieldAmount
+                    );
             }
+
 
             // =================================================
             // シールドOFF
@@ -214,21 +347,18 @@ namespace Tanks.Complete
 
             else
             {
-                // 軽減無し
-                m_ShieldValue = 0;
+                m_ShieldValue = 0f;
             }
         }
 
 
         // =====================================================
-        // ■ 無敵ON/OFF
+        // ■ 無敵設定
         // =====================================================
 
-        public void ToggleInvincibility()
+        public void SetInvincible(bool value)
         {
-            // true / false 切り替え
-            m_IsInvincible =
-                !m_IsInvincible;
+            m_IsInvincible = value;
         }
 
 
@@ -238,26 +368,125 @@ namespace Tanks.Complete
 
         private void SetHealthUI()
         {
-            // Sliderの値更新
-            m_Slider.value =
-                m_CurrentHealth;
+            // =================================================
+            // 表示HPを徐々に現在HPへ近づける
+            // =================================================
+
+            m_DisplayHealth =
+                Mathf.Lerp(
+                    m_DisplayHealth,
+                    m_CurrentHealth,
+                    Time.deltaTime *
+                    m_HealthBarSmoothSpeed
+                );
+
+
+            // =================================================
+            // 小数誤差対策
+            // =================================================
+
+            if (Mathf.Abs(
+                m_DisplayHealth -
+                m_CurrentHealth) < 0.01f)
+            {
+                m_DisplayHealth =
+                    m_CurrentHealth;
+            }
+
+
+            // =================================================
+            // Slider値更新
+            // =================================================
+
+            if (m_Slider != null)
+            {
+                m_Slider.value =
+                    m_DisplayHealth;
+            }
 
 
             // =================================================
             // HP割合に応じて色変更
             // =================================================
-            // HP満タン → 緑
-            // HP0       → 赤
-            // 中間      → 黄色系
+
+            if (m_FillImage != null)
+            {
+                m_FillImage.color =
+                    Color.Lerp(
+                        m_ZeroHealthColor,
+                        m_FullHealthColor,
+                        m_DisplayHealth /
+                        m_StartingHealth
+                    );
+            }
+        }
+
+
+        // =====================================================
+        // ■ 被弾後無敵処理
+        // =====================================================
+
+        private IEnumerator InvincibleRoutine()
+        {
+            // =================================================
+            // 無敵ON
             // =================================================
 
-            m_FillImage.color =
-                Color.Lerp(
-                    m_ZeroHealthColor,
-                    m_FullHealthColor,
-                    m_CurrentHealth /
-                    m_StartingHealth
+            m_IsInvincible = true;
+
+
+            // 経過時間
+            float timer = 0f;
+
+
+            // =================================================
+            // 無敵時間中ループ
+            // =================================================
+
+            while (timer < m_InvincibleTime)
+            {
+                // =================================================
+                // Renderer ON/OFF切り替え
+                // =================================================
+
+                foreach (Renderer renderer in m_Renderers)
+                {
+                    renderer.enabled =
+                        !renderer.enabled;
+                }
+
+
+                // =================================================
+                // 点滅待機
+                // =================================================
+
+                yield return new WaitForSecondsRealtime(
+                    m_BlinkInterval
                 );
+
+
+                // 時間加算
+                timer += m_BlinkInterval;
+            }
+
+
+            // =================================================
+            // 最後は必ず表示ON
+            // =================================================
+
+            foreach (Renderer renderer in m_Renderers)
+            {
+                renderer.enabled = true;
+            }
+
+
+            // =================================================
+            // 無敵解除
+            // =================================================
+
+            m_IsInvincible = false;
+
+            m_InvincibleCoroutine = null;
         }
 
 
@@ -267,34 +496,81 @@ namespace Tanks.Complete
 
         private void OnDeath()
         {
+            // =================================================
             // 二重実行防止
+            // =================================================
+
+            if (m_Dead)
+            {
+                return;
+            }
+
             m_Dead = true;
+
+
+            // =================================================
+            // 無敵Coroutine停止
+            // =================================================
+
+            if (m_InvincibleCoroutine != null)
+            {
+                StopCoroutine(
+                    m_InvincibleCoroutine
+                );
+            }
+
+            m_InvincibleCoroutine = null;
+
+
+            // =================================================
+            // Renderer強制表示
+            // =================================================
+
+            foreach (Renderer renderer in m_Renderers)
+            {
+                renderer.enabled = true;
+            }
 
 
             // =================================================
             // 爆発エフェクト位置設定
             // =================================================
 
-            m_ExplosionParticles
-                .transform.position =
-                transform.position;
+            if (m_ExplosionParticles != null)
+            {
+                m_ExplosionParticles
+                    .transform.position =
+                    transform.position;
 
 
-            // エフェクト有効化
-            m_ExplosionParticles
-                .gameObject
-                .SetActive(true);
+                // エフェクト有効化
+                m_ExplosionParticles
+                    .gameObject
+                    .SetActive(true);
 
 
-            // 爆発パーティクル再生
-            m_ExplosionParticles.Play();
+                // 爆発パーティクル再生
+                m_ExplosionParticles.Play();
+            }
 
 
+            // =================================================
             // 爆発音再生
-            m_ExplosionAudio.Play();
+            // =================================================
+
+            if (m_ExplosionAudio != null)
+            {
+                AudioSource.PlayClipAtPoint(
+                    m_ExplosionAudio.clip,
+                    transform.position
+                );
+            }
 
 
-            // タンクを非表示（死亡）
+            // =================================================
+            // タンク非表示
+            // =================================================
+
             gameObject.SetActive(false);
         }
     }
