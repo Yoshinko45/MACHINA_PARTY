@@ -443,7 +443,7 @@ MonoBehaviour:
   m_FireClip: {fileID: 8300000, guid: 672a9941361ad494a99fba36759eca80, type: 3}
   m_MinLaunchForce: 5
   m_MaxLaunchForce: 20
-  m_MaxChargeTime: 0
+  m_MaxChargeTime: 0.1
   m_ShotCooldown: 0
   m_MaxDamage: 20
   m_ExplosionForce: 50
@@ -477,7 +477,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7035055519383775531}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cc25b6c35f0ec7f43ad6f047f3623ad3, type: 3}
   m_Name: 
@@ -504,7 +504,7 @@ AudioSource:
   m_GameObject: {fileID: 7035055519383775531}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 3217310736647084020, guid: 33df99ac3ecb8a943a72930088feebb0, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 4932ab25b84dd7649b80af68a9660ddc, type: 3}
   m_PlayOnAwake: 1
@@ -601,7 +601,7 @@ AudioSource:
   m_GameObject: {fileID: 7035055519383775531}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -853074300999317961, guid: 33df99ac3ecb8a943a72930088feebb0, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
