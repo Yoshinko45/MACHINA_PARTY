@@ -58,12 +58,12 @@ namespace Tanks.Complete
                 if (!tankMovement)
                     continue;
 
-                // 爆風適用
-                tankMovement.AddExplosionForce(
-                    m_ExplosionForce,
-                    transform.position,
-                    m_ExplosionRadius
-                );
+                //// 爆風適用
+                //tankMovement.AddExplosionForce(
+                //    m_ExplosionForce,
+                //    transform.position,
+                //    m_ExplosionRadius
+                //);
 
                 // TankHealth取得
                 TankHealth targetHealth =

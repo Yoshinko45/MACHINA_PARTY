@@ -1,6 +1,6 @@
 using Fusion;
+using Tanks.Complete;
 using UnityEngine;
-
 
 // プレイヤーの同期データ管理クラス.
 public class NetworkPlayer : NetworkBehaviour
@@ -18,9 +18,11 @@ public class NetworkPlayer : NetworkBehaviour
 
     private NetworkCharacterController charactorController;
     private CameraFollow cam;
-    //bool _cameraSet;
 
-    // 生成時に設定.
+    // 直前の入力状態保存用.
+    private NetworkButtons previousButtons;
+
+    // プレイヤー生成時の処理.
     public override void Spawned()
     {
         charactorController = GetComponent<NetworkCharacterController>();
@@ -30,18 +32,52 @@ public class NetworkPlayer : NetworkBehaviour
         {
             LocalPlayer = this;
             
+            if (VehicleObject!= null)
+            {
+                cam.SetTarget(VehicleObject.transform);
+            }
+
             RPC_SetName("Player_" + Random.Range(100, 999));
         }
     }
 
+    // ネットワーク更新ごとの処理.
     public override void FixedUpdateNetwork()
     {
+        // ホストでなければ処理しない.
+        if (!HasStateAuthority)
+            return;
         // 入力処理.
-        if (GetInput(out PlayerInputData data))
+        if (!GetInput(out PlayerInputData data))
+            return;
+
+        // 車にPlayerInputDataから取得した入力を渡す.
+        VehicleObject
+            ?.GetComponent<IVehicle>()
+            ?.SetInput(data);
+
+        var attackvehicle = VehicleObject
+            ?.GetComponent<IAttackVehicle>();
+        //VehicleObject
+        //    ?.GetComponent<IAttackVehicle>();
+        //?.SetAttackInput(data);
+
+        // 攻撃車両の入力処理.
+        if (attackvehicle != null)
         {
-            // 車にPlayerInputDataから取得した入力を渡す.
-            var vehicle = VehicleObject?.GetComponent<IVehicle>();
-            vehicle?.SetInput(data);
+            var pressed = data.Buttons.GetPressed(previousButtons);
+            var released = data.Buttons.GetReleased(previousButtons);
+
+            if (pressed.IsSet(NetworkInputButtons.Fire))
+            {
+                attackvehicle.BeginCharge();
+            }
+            if (released.IsSet(NetworkInputButtons.Fire))
+            {
+                attackvehicle.ReleaseCharge();
+            }
+
+            previousButtons = data.Buttons;
         }
     }
 
@@ -66,6 +102,9 @@ public class NetworkPlayer : NetworkBehaviour
             return;
 
         cam.SetTarget(VehicleObject.transform);
+
+        var tankVehicle = VehicleObject.GetComponent<TankVehicle>();
+        TankAimUI.Instance?.SetVehicleShot(tankVehicle);
     }
 
     void TryInteract()
@@ -101,7 +140,6 @@ public class NetworkPlayer : NetworkBehaviour
     public void SetVehicle(NetworkObject vehicle)
     {
         VehicleObject = vehicle;
-        //_cameraSet = false;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]

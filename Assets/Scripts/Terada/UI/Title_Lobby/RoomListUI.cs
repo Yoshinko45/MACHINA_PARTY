@@ -11,11 +11,22 @@ public class RoomListUI : MonoBehaviour
     // UI内のパラメータを反映させる
     public void Init(string roomName, int players, int maxPlayers, bool isOpen)
     {
-        joinButton.interactable = isOpen;
-        joinButton.onClick.RemoveAllListeners();
-        joinButton.onClick.AddListener(Join);
-        roomNameLabel.text = this.roomName = roomName;
-        playerCount.text = $"{players}/{maxPlayers}";
+        gameObject.SetActive(true);
+
+        if (joinButton != null)
+        {
+            joinButton.interactable = isOpen;
+            joinButton.onClick.RemoveAllListeners();
+            joinButton.onClick.AddListener(Join);
+        }
+
+        if (roomNameLabel != null)
+            roomNameLabel.text = this.roomName = roomName;
+        else
+            this.roomName = roomName;
+        
+        if (playerCount != null)
+            playerCount.text = $"{players}/{maxPlayers}";
     }
 
     // ルーム入室処理.

@@ -5149,6 +5149,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7621911168106784029}
+  - component: {fileID: 4775251364809751150}
   m_Layer: 0
   m_Name: Aim
   m_TagString: Untagged
@@ -5165,12 +5166,24 @@ Transform:
   m_GameObject: {fileID: 3996104019939505173}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.5, z: 1.2}
+  m_LocalPosition: {x: 0, y: 1.5, z: 1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 6186262459661028165}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4775251364809751150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3996104019939505173}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f0c5d84cfc22b74d9d4cb97bbbc39cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.ProjectileMarker
 --- !u!1 &4280518182606560894
 GameObject:
   m_ObjectHideFlags: 0
@@ -5207,7 +5220,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0.11}
+  m_AnchoredPosition: {x: 0, y: 0.1}
   m_SizeDelta: {x: 3.5, y: 3.5}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &7860350469480193641
@@ -5489,8 +5502,8 @@ GameObject:
   - component: {fileID: 3832375398492558207}
   - component: {fileID: 6672484865253460251}
   - component: {fileID: 4454752669005929117}
-  - component: {fileID: -6873890504125407011}
-  - component: {fileID: 2927789930491892468}
+  - component: {fileID: 4054550019459811755}
+  - component: {fileID: 2230720499065629442}
   m_Layer: 0
   m_Name: TankVehicle
   m_TagString: Untagged
@@ -5530,8 +5543,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 62c7952b008ae444a9e5741d951b6247, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TankVehicle
-  move: {fileID: 2948371776886795159}
-  shot: {fileID: 7606160065493256763}
 --- !u!114 &2948371776886795159
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5544,14 +5555,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb8127e567eddfd44b96b6a12ad90a98, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.TankMove
-  m_Speed: 12
-  m_TurnSpeed: 180
-  m_IsDirectControl: 0
-  m_MovementAudio: {fileID: 4454752669005929117}
-  m_EngineIdling: {fileID: 8300000, guid: 4932ab25b84dd7649b80af68a9660ddc, type: 3}
-  m_EngineDriving: {fileID: 8300000, guid: d7ca9fb5aa30155449192b23d7fb3336, type: 3}
-  m_PitchRange: 0.2
-  m_IsComputerControlled: 0
+  moveSpeed: 20
+  turnSpeed: 180
 --- !u!114 &7606160065493256763
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5564,19 +5569,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52a9d64971b977242bf7095aa2e2cd75, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.TankShot
-  m_ShellPrefab: {fileID: 8186506382544667744, guid: 854744365863b4448a680cb876b4711f, type: 3}
-  m_FireTransform: {fileID: 7621911168106784029}
-  m_AimSlider: {fileID: 4267955693820686013}
-  m_ShootingAudio: {fileID: 4454752669005929117}
-  m_ChargingClip: {fileID: 8300000, guid: c17f124fcdc0f5446a72f793898bd74b, type: 3}
-  m_FireClip: {fileID: 8300000, guid: 672a9941361ad494a99fba36759eca80, type: 3}
-  m_MinLaunchForce: 5
-  m_MaxLaunchForce: 20
-  m_MaxChargeTime: 0.75
-  m_ShotCooldown: 1
-  m_MaxDamage: 100
-  m_ExplosionForce: 50
-  m_ExplosionRadius: 5
+  shellPrefab: {fileID: 8186506382544667744, guid: 854744365863b4448a680cb876b4711f, type: 3}
+  fireTransform: {fileID: 7621911168106784029}
+  minLaunchForce: 5
+  maxLaunchForce: 20
+  chargeTime: 1
+  shotCooldown: 1
+  chargeSlider: {fileID: 4267955693820686013}
+  marker: {fileID: 4775251364809751150}
+  _IsCharging: 0
+  _CurrentCharge: 0
 --- !u!114 &3832375398492558207
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5596,7 +5598,8 @@ MonoBehaviour:
   NetworkedBehaviours:
   - {fileID: 1454323723759898203}
   - {fileID: 2948371776886795159}
-  - {fileID: 2927789930491892468}
+  - {fileID: 7606160065493256763}
+  - {fileID: 2230720499065629442}
   ForceRemoteRenderTimeframe: 0
 --- !u!65 &6672484865253460251
 BoxCollider:
@@ -5640,7 +5643,7 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
+  MinDistance: 0.42514318
   MaxDistance: 500
   Pan2D: 0
   rolloffMode: 0
@@ -5716,32 +5719,34 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!143 &-6873890504125407011
-CharacterController:
+--- !u!54 &4054550019459811755
+Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8989939345133804134}
-  m_Material: {fileID: 0}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Height: 2
-  m_Radius: 0.5
-  m_SlopeLimit: 45
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.08
-  m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &2927789930491892468
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 80
+  m_CollisionDetection: 0
+--- !u!114 &2230720499065629442
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -5750,16 +5755,20 @@ MonoBehaviour:
   m_GameObject: {fileID: 8989939345133804134}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 378411a89480da345945c2f888327a2d, type: 3}
+  m_Script: {fileID: 11500000, guid: 0a591d221a634417e9827eb58e17de84, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Fusion.Unity::Fusion.NetworkCharacterController
+  m_EditorClassIdentifier: Fusion.Addons.Physics::Fusion.Addons.Physics.NetworkRigidbody3D
   _stateAuthorityChangeErrorCorrectionDelta: 0
-  gravity: -20
-  jumpImpulse: 8
-  acceleration: 10
-  braking: 10
-  maxSpeed: 20
-  rotationSpeed: 180
+  SyncScale: 0
+  SyncParent: 1
+  _interpolationTarget: {fileID: 0}
+  UsePreciseRotation: 0
+  UseRenderSleepThresholds: 1
+  RenderThresholds:
+    UseEnergy: 1
+    Position: 0.01
+    Rotation: 0.01
+    Scale: 0.01
 --- !u!1 &8992221964126031196
 GameObject:
   m_ObjectHideFlags: 0
