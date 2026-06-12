@@ -19,9 +19,22 @@ namespace Tanks.Complete
         }
 
         // =====================================================
-        // ■ プレイヤー選択情報
+        // ■ プレイモード
         // =====================================================
-        // メニュー画面で選択されたタンク情報を保持する
+        //
+        // TankBattle
+        //     従来の戦車バトルモード
+        //
+        // Race
+        //     レースモード
+        //     専用カメラシステムを使用
+        //
+        public enum PlayMode
+        {
+            TankBattle,
+            Race
+        }
+
         public class PlayerData
         {
             // CPU操作かどうか
@@ -51,6 +64,32 @@ namespace Tanks.Complete
 
         // カメラ制御
         public CameraControl m_CameraControl;
+
+        // =====================================================
+        // ■ モード設定
+        // =====================================================
+        [Header("Mode")]
+
+        // 現在のゲームモード
+        //
+        // TankBattle
+        //     通常の戦車バトル
+        //
+        // Race
+        //     レースモード
+        //
+        public PlayMode m_PlayMode = PlayMode.TankBattle;
+
+        // オンラインモードか
+        //
+        // false = ローカル対戦
+        // true  = オンライン対戦
+        //
+        public bool m_IsOnlineMode = false;
+
+        // レースモード専用
+        // 分割画面カメラ管理
+        public RaceSplitScreenCameraManager m_RaceCameraManager;
 
         // =====================================================
         // ■ タンクPrefab
@@ -203,7 +242,21 @@ namespace Tanks.Complete
                         m_SpawnPoints[i].m_SpawnPoint.rotation
                     );
 
-                    // ★追加
+                    // =====================================================
+                    // ■ デバッグ表示
+                    // =====================================================
+                    //
+                    // 正しくシーン内へ生成されたか確認する
+                    //
+                    // Name
+                    //     生成されたオブジェクト名
+                    //
+                    // Scene
+                    //     所属シーン名
+                    //
+                    // Valid
+                    //     シーン参照が有効か
+                    //
                     Debug.Log(
                         "Spawned : " +
                         m_SpawnPoints[i].m_Instance.name +
@@ -247,7 +300,16 @@ namespace Tanks.Complete
         }
 
         // =====================================================
-        // ■ カメラ対象設定
+        // ■ カメラ追従対象設定
+        // =====================================================
+        //
+        // Battleモード
+        //     CameraControl が全プレイヤーを追従
+        //
+        // Raceモード
+        //     RaceSplitScreenCameraManager が
+        //     各プレイヤー専用カメラを生成
+        //
         // =====================================================
         private void SetCameraTargets()
         {
@@ -262,8 +324,52 @@ namespace Tanks.Complete
                     .transform;
             }
 
-            m_CameraControl.m_Targets =
-                targets;
+            // =====================================================
+            // ■ レースモード
+            // =====================================================
+            //
+            // 通常のCameraControlは使用しない
+            //
+            // RaceSplitScreenCameraManagerへ
+            // プレイヤー情報を渡し、
+            // 分割画面カメラを生成する
+            //
+            if (m_PlayMode == PlayMode.Race)
+            {
+                // 通常の追従カメラ停止
+                if (m_CameraControl != null)
+                {
+                    m_CameraControl.enabled = false;
+                }
+
+                // レース用カメラ生成
+                if (m_RaceCameraManager != null)
+                {
+                    m_RaceCameraManager.Setup(
+                        targets,
+                        m_IsOnlineMode
+                    );
+                }
+
+                return;
+            }
+
+            // =====================================================
+            // ■ バトルモード
+            // =====================================================
+            //
+            // 従来のCameraControlを使用
+            //
+            // 全プレイヤーを対象に
+            // 自動ズーム・追従を行う
+            //
+            if (m_CameraControl != null)
+            {
+                m_CameraControl.enabled = true;
+
+                m_CameraControl.m_Targets =
+                    targets;
+            }
         }
 
         // =====================================================
@@ -312,8 +418,22 @@ namespace Tanks.Complete
             // 操作禁止
             DisableTankControl();
 
-            // カメラ初期位置へ
-            m_CameraControl.SetStartPositionAndSize();
+            // =====================================================
+            // ■ バトルモード専用
+            // =====================================================
+            //
+            // ラウンド開始時に
+            // カメラ位置とズームをリセット
+            //
+            // レースモードでは
+            // RaceCameraFollow が担当するため
+            // 実行しない
+            //
+            if (m_PlayMode == PlayMode.TankBattle &&
+                m_CameraControl != null)
+            {
+                m_CameraControl.SetStartPositionAndSize();
+            }
 
             // ラウンド番号更新
             m_RoundNumber++;

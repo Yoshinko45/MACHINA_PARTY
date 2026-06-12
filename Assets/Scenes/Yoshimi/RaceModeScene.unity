@@ -1546,11 +1546,11 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 416599019}
+  - component: {fileID: 416599021}
   - component: {fileID: 416599020}
   - component: {fileID: 416599022}
-  - component: {fileID: 416599021}
   m_Layer: 0
-  m_Name: SportsCar
+  m_Name: Normal_SportsCar
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1570,7 +1570,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1895543626}
-  - {fileID: 824181104}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &416599020
@@ -1586,17 +1585,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.TankMovement
   m_PlayerNumber: 1
-  m_Speed: 50
+  m_MovementProfile: 1
+  m_Speed: 25
   m_TurnSpeed: 180
   m_IsDirectControl: 0
+  m_RaceAcceleration: 22
+  m_RaceBrakeAcceleration: 32
+  m_RaceCoastDeceleration: 14
+  m_RaceReverseSpeedMultiplier: 0.45
+  m_RaceSteerAtStandstill: 0.25
   m_MovementAudio: {fileID: 0}
   m_EngineIdling: {fileID: 0}
   m_EngineDriving: {fileID: 0}
   m_PitchRange: 0.2
   m_IsComputerControlled: 0
-  m_InputUser: {fileID: 0}
---- !u!65 &416599021
-BoxCollider:
+--- !u!143 &416599021
+CharacterController:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1610,39 +1614,31 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 2.3672028, y: 1.4646232, z: 3.8083334}
-  m_Center: {x: -0.0073776245, y: 1.0864452, z: -0.07673907}
---- !u!54 &416599022
-Rigidbody:
+  m_Height: 1
+  m_Radius: 1
+  m_SlopeLimit: 45
+  m_StepOffset: 0.3
+  m_SkinWidth: 0.08
+  m_MinMoveDistance: 0.001
+  m_Center: {x: 0, y: 1, z: 0}
+--- !u!114 &416599022
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 416599018}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dcb281170cb83047b66c6ed71a9a830, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.InputReader
+  ControlIndex: 1
+  m_InputProfile: 1
+  m_GamepadRaceDeadZone: 0.15
 --- !u!1 &470544060
 GameObject:
   m_ObjectHideFlags: 0
@@ -3011,7 +3007,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa733d3d08f6fc544856c0a9ac135c21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WheelAnimation
-  carRigidbody: {fileID: 416599022}
+  carRigidbody: {fileID: 0}
   isFrontWheel: 1
   rotationSpeed: 50
   steerAngle: 30
@@ -3089,143 +3085,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: e3e8de6c91aed9643bad4eb5201ff72d, type: 3}
   m_PrefabInstance: {fileID: 815247709}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &824181101
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 824181104}
-  - component: {fileID: 824181103}
-  - component: {fileID: 824181102}
-  - component: {fileID: 824181105}
-  m_Layer: 0
-  m_Name: Main Camera
-  m_TagString: MainCamera
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!81 &824181102
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 824181101}
-  m_Enabled: 1
---- !u!20 &824181103
+--- !u!20 &824181103 stripped
 Camera:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 6455185074498879683, guid: 12172d155d233964988cbad06cd23605, type: 3}
+  m_PrefabInstance: {fileID: 633461076580602277}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 824181101}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
-  m_projectionMatrixMode: 1
-  m_GateFitMode: 2
-  m_FOVAxisMode: 0
-  m_Iso: 200
-  m_ShutterSpeed: 0.005
-  m_Aperture: 16
-  m_FocusDistance: 10
-  m_FocalLength: 50
-  m_BladeCount: 5
-  m_Curvature: {x: 2, y: 11}
-  m_BarrelClipping: 0.25
-  m_Anamorphism: 0
-  m_SensorSize: {x: 36, y: 24}
-  m_LensShift: {x: 0, y: 0}
-  m_NormalizedViewPortRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
-  field of view: 60
-  orthographic: 0
-  orthographic size: 5
-  m_Depth: -1
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingPath: -1
-  m_TargetTexture: {fileID: 0}
-  m_TargetDisplay: 0
-  m_TargetEye: 3
-  m_HDR: 1
-  m_AllowMSAA: 1
-  m_AllowDynamicResolution: 0
-  m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
-  m_StereoConvergence: 10
-  m_StereoSeparation: 0.022
---- !u!4 &824181104
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 824181101}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.2588191, y: -0, z: -0, w: 0.9659258}
-  m_LocalPosition: {x: 0, y: 10, z: -10}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 416599019}
-  m_LocalEulerAnglesHint: {x: 30, y: 0, z: 0}
---- !u!114 &824181105
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 824181101}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
-  m_RenderShadows: 1
-  m_RequiresDepthTextureOption: 2
-  m_RequiresOpaqueTextureOption: 2
-  m_CameraType: 0
-  m_Cameras: []
-  m_RendererIndex: -1
-  m_VolumeLayerMask:
-    serializedVersion: 2
-    m_Bits: 1
-  m_VolumeTrigger: {fileID: 0}
-  m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
-  m_Antialiasing: 0
-  m_AntialiasingQuality: 2
-  m_StopNaN: 0
-  m_Dithering: 0
-  m_ClearDepth: 1
-  m_AllowXRRendering: 1
-  m_AllowHDROutput: 1
-  m_UseScreenCoordOverride: 0
-  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
-  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
-  m_RequiresDepthTexture: 0
-  m_RequiresColorTexture: 0
-  m_TaaSettings:
-    m_Quality: 3
-    m_FrameInfluence: 0.1
-    m_JitterScale: 1
-    m_MipBias: 0
-    m_VarianceClampScale: 0.9
-    m_ContrastAdaptiveSharpening: 0
-  m_Version: 2
 --- !u!1001 &850521476
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4568,7 +4432,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa733d3d08f6fc544856c0a9ac135c21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WheelAnimation
-  carRigidbody: {fileID: 416599022}
+  carRigidbody: {fileID: 0}
   isFrontWheel: 1
   rotationSpeed: 50
   steerAngle: 30
@@ -4935,7 +4799,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa733d3d08f6fc544856c0a9ac135c21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WheelAnimation
-  carRigidbody: {fileID: 416599022}
+  carRigidbody: {fileID: 0}
   isFrontWheel: 1
   rotationSpeed: 50
   steerAngle: 30
@@ -6520,7 +6384,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: aa733d3d08f6fc544856c0a9ac135c21, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WheelAnimation
-  carRigidbody: {fileID: 416599022}
+  carRigidbody: {fileID: 0}
   isFrontWheel: 1
   rotationSpeed: 50
   steerAngle: 30
@@ -7235,6 +7099,128 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: e3e8de6c91aed9643bad4eb5201ff72d, type: 3}
   m_PrefabInstance: {fileID: 2016466466}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2056913437
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2056913438}
+  - component: {fileID: 2056913439}
+  m_Layer: 0
+  m_Name: RaceCameraManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2056913438
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2056913437}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -175, y: 3.5, z: -30}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2056913439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2056913437}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1782ee1563a02448a840b0a6c5fb3a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.RaceSplitScreenCameraManager
+  m_CameraPrefab: {fileID: 633461076580602278}
+  m_SourceCamera: {fileID: 824181103}
+  m_Cameras:
+  - {fileID: 633461076580602278}
+  m_TwoPlayerLayout: 0
+  m_MaxOfflinePlayers: 4
+--- !u!1001 &633461076580602277
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 3044820157235060805, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_Name
+      value: P1Camera
+      objectReference: {fileID: 0}
+    - target: {fileID: 5235836041984097158, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_Target
+      value: 
+      objectReference: {fileID: 416599019}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -175
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 4.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -28
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9914449
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.13052616
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6371556446780453061, guid: 12172d155d233964988cbad06cd23605, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 12172d155d233964988cbad06cd23605, type: 3}
+--- !u!114 &633461076580602278 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5235836041984097158, guid: 12172d155d233964988cbad06cd23605, type: 3}
+  m_PrefabInstance: {fileID: 633461076580602277}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9371f602c7d4ce4458d93d5a9c21ad31, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.RaceCameraFollow
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -7244,3 +7230,5 @@ SceneRoots:
   - {fileID: 1357309181}
   - {fileID: 416599019}
   - {fileID: 1051150007}
+  - {fileID: 2056913438}
+  - {fileID: 633461076580602277}
