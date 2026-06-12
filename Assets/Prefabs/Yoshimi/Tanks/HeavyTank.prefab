@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8689668714942254047}
   - component: {fileID: 7005887886878988365}
-  - component: {fileID: 7961016391331286605}
   - component: {fileID: 4814340705714458478}
   - component: {fileID: 3977644001729416021}
   - component: {fileID: 8687036653723540731}
@@ -71,27 +70,6 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0
   m_Center: {x: 0, y: 1, z: 0}
---- !u!65 &7961016391331286605
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2963341467267470317}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1.9748192, y: 2.2181435, z: 3.009567}
-  m_Center: {x: -0.05020094, y: 0.9602001, z: 0.054492593}
 --- !u!114 &4814340705714458478
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -105,7 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.TankMovement
   m_PlayerNumber: 3
-  m_Speed: 12
+  m_Speed: 10
   m_TurnSpeed: 180
   m_IsDirectControl: 0
   m_MovementAudio: {fileID: 3767716125109797091}
@@ -136,7 +114,7 @@ MonoBehaviour:
   m_MaxChargeTime: 1
   m_ShotCooldown: 3
   m_MaxDamage: 50
-  m_ExplosionForce: 50
+  m_ExplosionForce: 125
   m_ExplosionRadius: 5
 --- !u!114 &8687036653723540731
 MonoBehaviour:
@@ -157,6 +135,9 @@ MonoBehaviour:
   m_ZeroHealthColor: {r: 1, g: 0, b: 0, a: 1}
   m_ExplosionPrefab: {fileID: 151086, guid: 6bc6d0dd8b8428e4ca316513f2cf13c6, type: 3}
   m_HasShield: 0
+  m_InvincibleTime: 1.5
+  m_BlinkInterval: 0.1
+  m_HealthBarSmoothSpeed: 2
 --- !u!114 &1852572470185811050
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -164,7 +145,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2963341467267470317}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cc25b6c35f0ec7f43ad6f047f3623ad3, type: 3}
   m_Name: 
@@ -191,7 +172,7 @@ AudioSource:
   m_GameObject: {fileID: 2963341467267470317}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 3217310736647084020, guid: 33df99ac3ecb8a943a72930088feebb0, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 4932ab25b84dd7649b80af68a9660ddc, type: 3}
   m_PlayOnAwake: 1
@@ -288,7 +269,7 @@ AudioSource:
   m_GameObject: {fileID: 2963341467267470317}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: -853074300999317961, guid: 33df99ac3ecb8a943a72930088feebb0, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
@@ -927,13 +908,13 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 2213141571068006200}
     m_Modifications:
+    - target: {fileID: 902463018230840462, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
+      propertyPath: m_MaxValue
+      value: 200
+      objectReference: {fileID: 0}
     - target: {fileID: 2502711481265462758, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_Name
       value: HealthSlider
-      objectReference: {fileID: 0}
-    - target: {fileID: 2502711481265462758, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
-      propertyPath: m_Layer
-      value: 9
       objectReference: {fileID: 0}
     - target: {fileID: 3088847576401942210, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_AnchorMax.x
@@ -943,9 +924,17 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6066147126482045633, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
-      propertyPath: m_Layer
-      value: 9
+    - target: {fileID: 5626196587822016953, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5626196587822016953, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5626196587822016953, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 7471019981129515232, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_Pivot.x
@@ -1026,14 +1015,6 @@ PrefabInstance:
     - target: {fileID: 7471019981129515232, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8313935966057949721, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
-      propertyPath: m_Layer
-      value: 9
-      objectReference: {fileID: 0}
-    - target: {fileID: 8971489726698694703, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
-      propertyPath: m_Layer
-      value: 9
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
