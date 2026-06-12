@@ -13,6 +13,26 @@ namespace Tanks.Complete
     public class TankMovement : MonoBehaviour
     {
         // =====================================================
+        // ■ 移動モード
+        // =====================================================
+        //
+        // TankMovementは
+        // タンクバトルモードと
+        // レースモードの両方に対応している。
+        //
+        // TankBattle
+        //     従来の戦車操作
+        //
+        // Race
+        //     車のような加速方式
+        //
+        public enum MovementProfile
+        {
+            TankBattle, // タンクvsタンクモード
+            Race        // レースモード
+        }
+
+        // =====================================================
         // ■ プレイヤー設定
         // =====================================================
 
@@ -29,6 +49,9 @@ namespace Tanks.Complete
 
         [Header("Movement")]
 
+        public MovementProfile m_MovementProfile =
+            MovementProfile.TankBattle;
+
         // タンク移動速度
         public float m_Speed = 12f;
 
@@ -38,6 +61,34 @@ namespace Tanks.Complete
         // trueならカメラ方向基準で移動する
         // TPS風操作になる
         public bool m_IsDirectControl;
+
+        // レースモード用の加速
+        [Header("Race Movement")]
+
+        // 前進時の加速度
+        // 値が大きいほど素早く加速する
+        public float m_RaceAcceleration = 22f;
+
+        // 前進⇔後退を切り替える時の
+        // ブレーキ力
+        public float m_RaceBrakeAcceleration = 32f;
+
+        // アクセルを離した時の減速度
+        public float m_RaceCoastDeceleration = 14f;
+
+        // バック時の最高速度倍率
+        //
+        // 0.45なら
+        // 前進最高速度の45%までしか出ない
+        [Range(0.05f, 1f)]
+        public float m_RaceReverseSpeedMultiplier = 0.45f;
+
+        // 停止中のハンドルの効き具合
+        //
+        // 0だと停車中に曲がれない
+        // 1だと停止中でも最大旋回
+        [Range(0f, 1f)]
+        public float m_RaceSteerAtStandstill = 0.25f;
 
 
         // =====================================================
@@ -100,6 +151,19 @@ namespace Tanks.Complete
         // ゲームパッド操作中か
         // trueならカメラ方向移動を使用
         private bool m_UsingGamepadScheme;
+
+        // =====================================================
+        // ■ レースモード関連
+        // =====================================================
+
+        // 現在速度
+        //
+        // TankBattleでは使用しない。
+        // Raceモードでのみ使用される。
+        //
+        // 加速・減速・ブレーキの計算結果が
+        // この変数へ保存される。
+        private float m_RaceCurrentSpeed;
 
 
         // =====================================================
@@ -201,6 +265,12 @@ namespace Tanks.Complete
 
             // 爆風速度初期化
             m_ExplosionVelocity = Vector3.zero;
+
+            // レース速度初期化
+            //
+            // リスポーン時やラウンド開始時に
+            // 前回の速度が残らないようにする
+            m_RaceCurrentSpeed = 0f;
 
 
             // =================================================
@@ -336,7 +406,9 @@ namespace Tanks.Complete
             // 動いているか判定
             bool isMoving =
                 Mathf.Abs(m_MovementInputValue) > 0.1f ||
-                Mathf.Abs(m_TurnInputValue) > 0.1f;
+                Mathf.Abs(m_TurnInputValue) > 0.1f ||
+                (m_MovementProfile == MovementProfile.Race &&
+                 Mathf.Abs(m_RaceCurrentSpeed) > 0.1f);
 
 
             // =================================================
@@ -399,10 +471,21 @@ namespace Tanks.Complete
         // =====================================================
 
         private void Move()
-        {
+        {   
+            // =====================================================
+            // ■ 移動モード切り替え
+            // =====================================================
+            //
+            // Raceなら専用処理へ
+            // TankBattleなら従来処理を実行
+            if (m_MovementProfile == MovementProfile.Race)
+            {
+                MoveRace();
+                return;
+            }   
+
             // 実際に進む方向
             Vector3 moveDirection;
-
 
             // =================================================
             // カメラ方向基準移動
@@ -525,11 +608,123 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ 回転処理
+        // ■ レースモード移動処理
         // =====================================================
+        //
+        // 戦車のような即時移動ではなく、
+        // 車のような加速方式を使用する。
+        //
+        // ・アクセル
+        // ・ブレーキ
+        // ・惰性移動
+        // ・バック走行
+        //
+        // を再現する。
+        private void MoveRace()
+        {   
+            // 前後入力取得
+            //
+            // W = 1
+            // S = -1
+            // 離している = 0
+            float throttle =
+                Mathf.Clamp(
+                    m_MovementInputValue,
+                    -1f,
+                    1f
+                );
+
+            // =====================================================
+            // ■ 目標速度計算
+            // =====================================================
+            //
+            // 前進時
+            //     最大速度まで加速
+            //
+            // 後退時
+            //     バック速度倍率を適用
+            float targetSpeed =
+                throttle >= 0f
+                    ? throttle * m_Speed
+                    : throttle *
+                      m_Speed *
+                      m_RaceReverseSpeedMultiplier;
+
+            // =====================================================
+            // ■ 加速度決定
+            // =====================================================
+            //
+            // 入力中
+            //     アクセル加速
+            //
+            // 入力無し
+            //     自然減速
+            float acceleration =
+                Mathf.Abs(throttle) > 0.01f
+                    ? m_RaceAcceleration
+                    : m_RaceCoastDeceleration;
+
+            // =====================================================
+            // ■ ブレーキ判定
+            // =====================================================
+            //
+            // 前進中に後退入力
+            // 後退中に前進入力
+            //
+            // の場合は強い減速を使用
+            if (Mathf.Sign(targetSpeed) !=
+                Mathf.Sign(m_RaceCurrentSpeed) &&
+                Mathf.Abs(m_RaceCurrentSpeed) > 0.01f &&
+                Mathf.Abs(throttle) > 0.01f)
+            {
+                acceleration =
+                    m_RaceBrakeAcceleration;
+            }
+
+            // =====================================================
+            // ■ 現在速度更新
+            // =====================================================
+            //
+            // 徐々に目標速度へ近付ける
+            m_RaceCurrentSpeed =
+                Mathf.MoveTowards(
+                    m_RaceCurrentSpeed,
+                    targetSpeed,
+                    acceleration * Time.deltaTime
+                );
+
+            // 現在速度で前進
+            Vector3 velocity =
+                transform.forward *
+                m_RaceCurrentSpeed;
+
+            velocity +=
+                m_ExplosionVelocity;
+
+            m_CharacterController.Move(
+                velocity * Time.deltaTime
+            );
+
+            m_ExplosionVelocity =
+                Vector3.Lerp(
+                    m_ExplosionVelocity,
+                    Vector3.zero,
+                    Time.deltaTime * 5f
+                );
+        }
+
 
         private void Turn()
-        {
+        { 
+            // =====================================================
+            // ■ 回転モード切り替え
+            // =====================================================
+            if (m_MovementProfile == MovementProfile.Race)
+            {
+                TurnRace();
+                return;
+            }
+
             // =================================================
             // カメラ方向移動中は不要
             // =================================================
@@ -552,6 +747,60 @@ namespace Tanks.Complete
 
 
             // Y軸回転
+            transform.Rotate(
+                0f,
+                turn,
+                0f
+            );
+        }
+
+        // =====================================================
+        // ■ レースモード旋回処理
+        // =====================================================
+        //
+        // 速度によってハンドルの効きを変える。
+        //
+        // 停止中
+        //     曲がりにくい
+        //
+        // 高速時
+        //     曲がりやすい
+        //
+        private void TurnRace()
+        {
+            // 現在速度を最大速度で割った割合
+            float speedRatio =
+                m_Speed > 0.01f
+                    ? Mathf.Clamp01(
+                        Mathf.Abs(m_RaceCurrentSpeed) /
+                        m_Speed
+                    )
+                    : 0f;
+
+            // =====================================================
+            // ■ ハンドルの効き具合
+            // =====================================================
+            // 停車中でも最低限ハンドルが効くようにする
+            float steerStrength =
+                Mathf.Max(
+                    m_RaceSteerAtStandstill,
+                    speedRatio
+                );
+            // =====================================================
+            // ■ バック中は逆方向へ曲がる
+            // =====================================================
+            float directionSign =
+                m_RaceCurrentSpeed < -0.01f
+                    ? -1f
+                    : 1f;
+
+            float turn =
+                m_TurnInputValue *
+                m_TurnSpeed *
+                steerStrength *
+                directionSign *
+                Time.deltaTime;
+
             transform.Rotate(
                 0f,
                 turn,

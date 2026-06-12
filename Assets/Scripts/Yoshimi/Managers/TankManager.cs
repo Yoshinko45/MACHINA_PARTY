@@ -79,7 +79,6 @@ namespace Tanks.Complete
         // =====================================================
         // ■ 各コンポーネント
         // =====================================================
-
         private TankMovement m_Movement;
 
         private TankShooting m_Shooting;
@@ -90,6 +89,16 @@ namespace Tanks.Complete
 
         private GameObject m_CanvasGameObject;
 
+        // =====================================================
+        // ■ 現在のゲームモード
+        // =====================================================
+        //
+        // Setup()時にGameManagerから取得する。
+        // TankBattleとRaceで挙動を切り替えるため保持する。
+        //
+        private GameManager.PlayMode m_PlayMode =
+            GameManager.PlayMode.TankBattle;
+
 
         // =====================================================
         // ■ 初期設定
@@ -97,9 +106,27 @@ namespace Tanks.Complete
 
         public void Setup(GameManager manager)
         {
-            // =================================================
-            // タンク本体存在確認
-            // =================================================
+            // =====================================================
+            // 現在のゲームモード取得
+            // =====================================================
+            //
+            // GameManagerから現在のモードを取得する。
+            // managerが存在しない場合は安全のため
+            // TankBattle扱いにしておく。
+            //
+            m_PlayMode =
+                manager != null
+                    ? manager.m_PlayMode
+                    : GameManager.PlayMode.TankBattle;
+
+            // =====================================================
+            // デバッグ情報表示
+            // =====================================================
+            //
+            // Setup時に実際のTankインスタンスなのか
+            // Prefab参照なのか確認するためのログ。
+            // 特にPrefab参照のままだとシーン上に存在しないため
+            // 後続の処理でNullReferenceExceptionが発生する可能性がある。
             Debug.Log(
                 "Instance = " + m_Instance.name +
                 "\nScene = " + m_Instance.scene.name +
@@ -168,44 +195,117 @@ namespace Tanks.Complete
             }
 
 
-            // =================================================
-            // CPU設定
-            // =================================================
+            // =====================================================
+            // TankMovement設定
+            // =====================================================
+            //
+            // ・CPUかプレイヤーか
+            // ・プレイヤー番号
+            // ・ゲームモード別移動方式
+            //
+            // を設定する。
+            //
 
             if (m_Movement != null)
             {
+                // CPU操作設定
                 m_Movement.m_IsComputerControlled =
                     m_ComputerControlled;
 
                 // プレイヤー番号設定
                 m_Movement.m_PlayerNumber =
                     m_PlayerNumber;
+
+                 // -------------------------------------------------
+                // モードごとの移動方式
+                // -------------------------------------------------
+                //
+                // TankBattle
+                // → 戦車操作
+                //
+                // Race
+                // → レース用操作
+                //
+                m_Movement.m_MovementProfile =
+                    m_PlayMode == GameManager.PlayMode.Race
+                        ? TankMovement.MovementProfile.Race
+                        : TankMovement.MovementProfile.TankBattle;
+
+                // -------------------------------------------------
+                // レースモード時
+                // -------------------------------------------------
+                //
+                // 強制的に通常操作へ切り替える。
+                // レースモードでは通常のタンク操作はできないようにする。
+                if (m_PlayMode == GameManager.PlayMode.Race)
+                {
+                    m_Movement.m_IsDirectControl =
+                        false;
+                }
             }
 
+            // =====================================================
+            // TankShooting設定
+            // =====================================================
+            //
+            // レースモードでは砲撃を使用しないため
+            // コンポーネント自体を停止する。
+            //
             if (m_Shooting != null)
             {
                 m_Shooting.m_IsComputerControlled =
                     m_ComputerControlled;
+
+                m_Shooting.enabled =
+                    m_PlayMode == GameManager.PlayMode.TankBattle;
             }
 
-
-            // =================================================
-            // 入力番号設定
-            // =================================================
-
+            // =====================================================
+            // 入力設定
+            // =====================================================
+            // ・キーボード
+            // ・コントローラー
+            // の割り当てを設定する。
+            // またゲームモードによって入力プロファイルを切り替える。
+            // レースモードでは移動以外の入力は使用しないため、レース用プロファイルを使用する。
+            // タンクバトルモードでは通常の入力プロファイルを使用する。
+            // これにより、レースモードでは誤って砲撃や特殊能力の入力をしてしまうことを防ぐ。
+            // なお、InputReaderが存在しない場合はログを出すだけにしておく。
             if (m_InputReader != null)
             {
+                // 操作番号
                 m_InputReader.ControlIndex =
                     ControlIndex;
+
+                // -------------------------------------------------
+                // モード別入力設定
+                // -------------------------------------------------
+                //
+                // TankBattle
+                // → 戦車操作
+                //
+                // Race
+                // → レース操作
+                //
+                m_InputReader.m_InputProfile =
+                    m_PlayMode == GameManager.PlayMode.Race
+                        ? InputReader.InputProfile.Race
+                        : InputReader.InputProfile.TankBattle;
             }
 
-
-            // =================================================
+            // =====================================================
             // CPU設定
-            // =================================================
-
-            if (m_ComputerControlled)
+            // =====================================================
+            //
+            // TankBattle時のみAIを有効化する。
+            //
+            // RaceモードではAI戦車を使用しないため
+            // 強制的に停止する。
+            if (m_ComputerControlled &&
+                m_PlayMode ==
+                GameManager.PlayMode.TankBattle)
             {
+                 // AI未取得なら追加
                 if (m_AI == null)
                 {
                     m_AI = m_Instance.GetComponent<TankAI>();
@@ -214,11 +314,15 @@ namespace Tanks.Complete
                         m_AI = m_Instance.AddComponent<TankAI>();
                 }
 
+                // AI初期化
                 m_AI.Setup(manager);
+
+                // AI有効化
                 m_AI.enabled = true;
             }
             else
             {
+                 // RaceモードなどではAI停止
                 if (m_AI == null)
                     m_AI = m_Instance.GetComponent<TankAI>();
 
@@ -250,6 +354,16 @@ namespace Tanks.Complete
                     UnityEditor.EditorUtility.IsPersistent(m_Instance)
                 );
 
+            // =====================================================
+            // タンクカラー変更
+            // =====================================================
+            //
+            // TankColorという名前を含むマテリアルだけを
+            // プレイヤーカラーに変更する。
+            //
+            // BodyやWheelなど他のマテリアルは
+            // 変更しない。
+            //
             MeshRenderer[] renderers =
                 m_Instance.GetComponentsInChildren<MeshRenderer>();
 
@@ -275,7 +389,8 @@ namespace Tanks.Complete
                     {
                         continue;
                     }
-
+                    
+                    // TankColorのみ色変更
                     if (mat.name.Contains("TankColor"))
                     {
                         mat.color =
@@ -313,8 +428,13 @@ namespace Tanks.Complete
                 m_Movement.enabled = false;
             }
 
-
-            // 発射停止
+            // =====================================================
+            // 発射有効
+            // =====================================================
+            //
+            // レースモードでは射撃を使わないため
+            // TankBattle時のみ有効化する。
+            //
             if (m_Shooting != null)
             {
                 m_Shooting.enabled = false;
@@ -353,13 +473,22 @@ namespace Tanks.Complete
             // 発射有効
             if (m_Shooting != null)
             {
-                m_Shooting.enabled = true;
+                m_Shooting.enabled =
+                    m_PlayMode ==
+                    GameManager.PlayMode.TankBattle;
             }
 
 
-            // AI有効
+            // =====================================================
+            // AI再有効化
+            // =====================================================
+            //
+            // CPUかつTankBattle時のみAIを再開する。
+            //
             if (m_ComputerControlled &&
-                m_AI != null)
+                m_AI != null &&
+                m_PlayMode ==
+                GameManager.PlayMode.TankBattle)
             {
                 m_AI.enabled = true;
             }

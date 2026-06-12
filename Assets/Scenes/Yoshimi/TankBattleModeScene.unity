@@ -1112,6 +1112,9 @@ MonoBehaviour:
   m_StartDelay: 3
   m_EndDelay: 3
   m_CameraControl: {fileID: 1139858593}
+  m_PlayMode: 0
+  m_IsOnlineMode: 0
+  m_RaceCameraManager: {fileID: 0}
   m_Tank1Prefab: {fileID: 4488350733067167021, guid: 30319ff81ed984448a499240aee5faaa, type: 3}
   m_Tank2Prefab: {fileID: 641267428853263029, guid: f968ae1596b79744f8d5ca78ce8931f1, type: 3}
   m_Tank3Prefab: {fileID: 2963341467267470317, guid: d925fd6ad646f7a45a4e294271ea4435, type: 3}
@@ -1448,8 +1451,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 76}
-  m_SizeDelta: {x: -717.1125, y: -752.9045}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: -201.1331, y: -752.9045}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1937634719
 MonoBehaviour:
@@ -1484,7 +1487,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: TITLE
+  m_Text: TANK vs TANK
 --- !u!222 &1937634720
 CanvasRenderer:
   m_ObjectHideFlags: 0
