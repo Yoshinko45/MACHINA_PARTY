@@ -98,6 +98,14 @@ namespace Tanks.Complete
             private set;
         }
 
+        /// <summary>
+        /// ドリフトボタンを押している間
+        /// </summary>
+        public bool DriftHeld
+        {
+            get;
+            private set;
+        }
 
         /// <summary>
         /// ボタンを離した瞬間
@@ -138,6 +146,8 @@ namespace Tanks.Complete
             FirePressed = false;
             FireHeld = false;
             FireReleased = false;
+
+            DriftHeld = false;
 
             IsUsingGamepad = false;
 
@@ -370,6 +380,23 @@ namespace Tanks.Complete
 
             FireHeld =
                 fireKey.isPressed;
+
+                // =================================================
+                // ドリフト入力
+                // =================================================
+                //
+                // Shiftキーを押している間ドリフト
+                //
+                if (useWASD)
+                {
+                    DriftHeld =
+                        Keyboard.current.leftShiftKey.isPressed;
+                }
+                else
+                {
+                    DriftHeld =
+                        Keyboard.current.rightShiftKey.isPressed;
+                }
         }
 
         // =====================================================
@@ -487,6 +514,15 @@ namespace Tanks.Complete
 
             FireHeld =
                 pad.buttonSouth.isPressed;
+
+            // =================================================
+            // ドリフト入力
+            // =================================================
+            //
+            // RBボタンを押している間ドリフト
+            //
+            DriftHeld =
+                pad.rightShoulder.isPressed;
 
             IsUsingGamepad = true;
         }

@@ -215,33 +215,6 @@ namespace Tanks.Complete
                 // プレイヤー番号設定
                 m_Movement.m_PlayerNumber =
                     m_PlayerNumber;
-
-                 // -------------------------------------------------
-                // モードごとの移動方式
-                // -------------------------------------------------
-                //
-                // TankBattle
-                // → 戦車操作
-                //
-                // Race
-                // → レース用操作
-                //
-                m_Movement.m_MovementProfile =
-                    m_PlayMode == GameManager.PlayMode.Race
-                        ? TankMovement.MovementProfile.Race
-                        : TankMovement.MovementProfile.TankBattle;
-
-                // -------------------------------------------------
-                // レースモード時
-                // -------------------------------------------------
-                //
-                // 強制的に通常操作へ切り替える。
-                // レースモードでは通常のタンク操作はできないようにする。
-                if (m_PlayMode == GameManager.PlayMode.Race)
-                {
-                    m_Movement.m_IsDirectControl =
-                        false;
-                }
             }
 
             // =====================================================
