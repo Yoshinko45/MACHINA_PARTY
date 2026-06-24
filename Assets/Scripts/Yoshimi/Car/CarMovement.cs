@@ -2,667 +2,328 @@ using UnityEngine;
 
 namespace Tanks.Complete
 {
-    // =====================================================
-    // ■ CarMovement
-    // =====================================================
-    //
-    // レースゲーム専用の車両移動クラス。
-    //
-    // Rigidbodyを利用して車両を制御する。
-    // CharacterControllerは使用しない。
-    //
-    // 主な機能
-    // ・アクセル
-    // ・ブレーキ
-    // ・自然減速
-    // ・ドリフト
-    // ・ブースト
-    // ・芝生減速
-    // ・壁衝突減速
-    //
-    // =====================================================
-
-    [RequireComponent(typeof(Rigidbody))]
-    [RequireComponent(typeof(InputReader))]
+    /// <summary>
+    /// 車（カート）の移動・旋回・ドリフト・モデル演出を制御するコンポーネント。
+    /// 入力 → モデル演出（Update） → 物理演算（FixedUpdate）の流れで処理。
+    /// </summary>
     public class CarMovement : MonoBehaviour
     {
+        // =====================================================
+        // ■ コンポーネント
+        // =====================================================
+
+        [Header("コンポーネント")]
+        public Rigidbody rb;               // 物理演算用のRigidbody
+        private InputReader m_InputReader; // 入力読み取り用コンポーネント
+
+
         // =====================================================
         // ■ プレイヤー設定
         // =====================================================
 
-        [Header("Player")]
-
-        // プレイヤー番号
-        public int m_PlayerNumber = 1;
-
-        // CPU操作か
-        public bool m_IsComputerControlled;
+        [Header("プレイヤー設定")]
+        [HideInInspector]
+        public int m_PlayerNumber = 1;     // プレイヤー番号（外部から参照される想定）
 
 
         // =====================================================
-        // ■ 移動設定
+        // ■ 前進・後退の設定
         // =====================================================
 
-        [Header("Movement")]
+        [Header("前進・後退の設定")]
 
-        // 通常最高速度
-        public float m_MaxSpeed = 20f;
+        [Tooltip("前進する力（大きいほど加速が速い）")]
+        public float forwardAccel = 150f;  // 前進時の加速度（ForceMode.Acceleration）
 
-        // 加速度
-        public float m_Acceleration = 18f;
+        [Tooltip("後退する力（大きいほど加速が速い）")]
+        public float reverseAccel = 75f;   // 後退時の加速度（前進より弱め）
 
-        // ブレーキ力
-        public float m_BrakePower = 35f;
+        [Tooltip("最高速度（これ以上は加速しない）")]
+        public float maxSpeed = 35f;       // 速度上限（currentSpeedMultiplierを掛けた値と比較）
 
-        // アクセルを離した時の減速度
-        public float m_CoastDeceleration = 8f;
 
-        // ハンドル速度
-        public float m_TurnSpeed = 120f;
+        // =====================================================
+        // ■ 旋回の設定
+        // =====================================================
 
-        // バック時の最高速度倍率
-        [Range(0.1f, 1f)]
-        public float m_ReverseSpeedMultiplier = 0.45f;
+        [Header("旋回の設定")]
+
+        [Tooltip("曲がる強さ（大きいほど急旋回）")]
+        public float turnStrength = 100f;  // 旋回の強さ（毎フレームの回転量に影響）
+
+
+        // =====================================================
+        // ■ ブレーキの設定
+        // =====================================================
+
+        [Header("ブレーキの設定")]
+
+        [Tooltip("減速の強さ（大きいほど早く止まる）")]
+        public float brakeStrength = 0.1f; // 減速時の速度減少量（MoveTowardsのstep）
+
+
+        // =====================================================
+        // ■ 地面速度設定
+        // =====================================================
+
+        [Header("地面速度設定")]
+
+        [Tooltip("Groundタグの地面に触れたときの速度倍率（0.5 = 半減）")]
+        public float groundSpeedMultiplier = 0.5f; // 特定の地面では速度を落とすための倍率
 
 
         // =====================================================
         // ■ ドリフト設定
         // =====================================================
 
-        [Header("Drift")]
+        [Header("ドリフト設定")]
 
-        // ドリフト中の旋回倍率
-        public float m_DriftTurnMultiplier = 1.4f;
+        [Tooltip("ドリフト中の横方向への滑りやすさ（大きいほど滑る）")]
+        public float driftSidewaysFriction = 0.5f; // 横方向の速度をどの程度残すか（スライド量）
 
-        // ドリフト可能になる最低速度
-        public float m_DriftStartSpeed = 10f;
+        [Tooltip("ドリフト中の旋回強さ倍率")]
+        public float driftTurnMultiplier = 1.5f;   // ドリフト中は旋回が強くなる倍率
 
-        // ドリフト中か
-        public bool IsDrifting
+
+        // =====================================================
+        // ■ 車体モデル設定
+        // =====================================================
+
+        [Header("車体モデル設定")]
+
+        [Tooltip("傾けたい車体モデル（Tank_Crawler_Model）")]
+        public Transform kartModel;        // 実際に傾ける車体モデル（子オブジェクト想定）
+
+        [Tooltip("ドリフト中のY軸傾き角度")]
+        public float driftTiltAngle = 15f; // ドリフト中の車体の「傾き」角度（見た目）
+
+        [Tooltip("傾きの補間速度（大きいほど素早く傾く）")]
+        public float driftTiltSpeed = 5f;  // 傾きの補間速度（実際はdriftBodyAngleSpeedで兼用）
+
+        [Tooltip("車体の向きと進行方向のズレ角度（大きいほどズレる）")]
+        public float driftBodyAngle = 20f; // ドリフト中の「向きのズレ」角度（マリカー風）
+
+        [Tooltip("車体の向きのズレの補間速度")]
+        public float driftBodyAngleSpeed = 8f; // ズレ角度の補間速度
+
+
+        // =====================================================
+        // ■ 内部変数
+        // =====================================================
+
+        // キー入力の値（-1・0・1）
+        private float moveInput;    // 前進：1、後退：-1、ニュートラル：0
+        private float turnInput;    // 右：1、左：-1、ニュートラル：0
+
+        // ドリフト状態
+        private bool drifting;      // ドリフト中かどうか
+        private int driftDirection; // ドリフト方向（1:右、-1:左）
+
+        // 現在の速度倍率（通常:1.0、Ground:0.5）
+        private float currentSpeedMultiplier = 1.0f;
+
+        // 車体モデルの現在のY軸角度（localEulerAnglesに依存しないよう自前管理）
+        private float currentModelAngle;
+
+
+        // =====================================================
+        // ■ 初期化
+        // =====================================================
+
+        void Start()
         {
-            get { return m_IsDrifting; }
-        }
+            // Rigidbodyを取得（Inspectorで未設定なら自身から取得）
+            rb = GetComponent<Rigidbody>();
 
-        // =====================================================
-        // ■ ブースト設定
-        // =====================================================
+            // 重心を少し下げて安定させる（車がひっくり返りにくくする）
+            rb.centerOfMass = new Vector3(0f, -0.5f, 0f);
 
-        [Header("Boost")]
+            // InputReaderコンポーネントを取得（入力処理を分離）
+            m_InputReader = GetComponent<InputReader>();
 
-        // ブースト時の最高速度倍率
-        public float m_BoostMultiplier = 1.5f;
-
-        // ブースト継続時間
-        public float m_BoostTime = 3f;
-
-        // ブースト中か
-        public bool IsBoosting
-        {
-            get { return m_IsBoosting; }
-        }
-
-
-        // =====================================================
-        // ■ 状態
-        // =====================================================
-
-        // 現在速度
-        private float m_CurrentSpeed;
-
-        // 前後入力
-        private float m_MoveInput;
-
-        // 左右入力
-        private float m_TurnInput;
-
-        // ドリフト入力
-        private bool m_DriftInput;
-
-        // ドリフト中か
-        private bool m_IsDrifting;
-
-        // ブースト中か
-        private bool m_IsBoosting;
-
-        // 芝生上か
-        private bool m_IsOnGrass;
-
-
-        // =====================================================
-        // ■ コンポーネント
-        // =====================================================
-
-        // Rigidbody
-        private Rigidbody m_Rigidbody;
-
-        // 入力取得クラス
-        private InputReader m_InputReader;
-
-
-        // =====================================================
-        // ■ Awake
-        // =====================================================
-        //
-        // 必要なコンポーネント取得。
-        // Rigidbodyの初期設定もここで行う。
-        //
-        // =====================================================
-
-        private void Awake()
-        {
-            // Rigidbody取得
-            m_Rigidbody =
-                GetComponent<Rigidbody>();
-
-
-            // InputReader取得
-            m_InputReader =
-                GetComponent<InputReader>();
-
-
-            // =================================================
-            // Rigidbody設定
-            // =================================================
-
-            // 重力を使用
-            m_Rigidbody.useGravity = true;
-
-            // 描画補間
-            m_Rigidbody.interpolation =
-                RigidbodyInterpolation.Interpolate;
-
-            // 高速移動時のすり抜け防止
-            m_Rigidbody.collisionDetectionMode =
-                CollisionDetectionMode.Continuous;
-
-            // 横転・前転防止
-            m_Rigidbody.constraints =
-                RigidbodyConstraints.FreezeRotationX |
-                RigidbodyConstraints.FreezeRotationZ;
-        }
-
-
-        // =====================================================
-        // ■ Start
-        // =====================================================
-        //
-        // ゲーム開始時の初期化。
-        //
-        // =====================================================
-
-        private void Start()
-        {
-            // 初期速度
-            m_CurrentSpeed = 0f;
-
-            // 初期状態ではコース外扱い
-            m_IsOnGrass = true;
-        }
-
-
-        // =====================================================
-        // ■ Update
-        // =====================================================
-        //
-        // 毎フレーム入力を取得する。
-        // Rigidbody処理はFixedUpdateで行う。
-        //
-        // =====================================================
-
-        private void Update()
-        {
-            // CPUなら入力取得しない
-            if (m_IsComputerControlled)
-            {
-                return;
-            }
-
-            // InputReader未設定
+            // InputReaderがない場合はエラー（入力が取れないため）
             if (m_InputReader == null)
-            {
-                return;
-            }
-
-            // =================================================
-            // 入力取得
-            // =================================================
-
-            // 前後入力
-            m_MoveInput =
-                m_InputReader.MoveInput.y;
-
-            // 左右入力
-            m_TurnInput =
-                m_InputReader.MoveInput.x;
-
-            // ドリフト入力
-            m_DriftInput = m_InputReader.DriftHeld;
-        }
-
-        // =====================================================
-        // ■ FixedUpdate
-        // =====================================================
-        //
-        // Rigidbodyの物理処理を実行する。
-        //
-        // 処理順
-        // ①ドリフト更新
-        // ②移動
-        // ③回転
-        //
-        // =====================================================
-
-        private void FixedUpdate()
-        {
-            // ドリフト状態更新
-            UpdateDrift();
-
-            // 車両移動
-            Move();
-
-            // 車両回転
-            Turn();
-        }
-
-        // =====================================================
-        // ■ 移動処理
-        // =====================================================
-        //
-        // アクセル・ブレーキ入力から現在速度を計算し、
-        // Rigidbodyへ速度を反映する。
-        //
-        // 芝生やブーストによる最高速度補正もここで行う。
-        //
-        // =====================================================
-
-        private void Move()
-        {
-            //=====================================================
-            // 現在の最高速度
-            //=====================================================
-
-            float maxSpeed =
-                m_MaxSpeed;
-
-
-            // 芝生では速度半減
-            if (m_IsOnGrass)
-            {
-                maxSpeed *= 0.5f;
-            }
-
-
-            // ブースト中
-            if (m_IsBoosting)
-            {
-                maxSpeed *=
-                    m_BoostMultiplier;
-            }
-
-
-            //=====================================================
-            // アクセル
-            //=====================================================
-
-            if (m_MoveInput > 0f)
-            {
-                m_CurrentSpeed =
-                    Mathf.MoveTowards(
-                        m_CurrentSpeed,
-                        maxSpeed,
-                        m_Acceleration *
-                        Time.fixedDeltaTime
-                    );
-            }
-
-
-            //=====================================================
-            // バック
-            //=====================================================
-
-            else if (m_MoveInput < 0f)
-            {
-                float reverseSpeed =
-                    -maxSpeed *
-                    m_ReverseSpeedMultiplier;
-
-                m_CurrentSpeed =
-                    Mathf.MoveTowards(
-                        m_CurrentSpeed,
-                        reverseSpeed,
-                        m_BrakePower *
-                        Time.fixedDeltaTime
-                    );
-            }
-
-
-            //=====================================================
-            // 自然減速
-            //=====================================================
-
-            else
-            {
-                m_CurrentSpeed =
-                    Mathf.MoveTowards(
-                        m_CurrentSpeed,
-                        0f,
-                        m_CoastDeceleration *
-                        Time.fixedDeltaTime
-                    );
-            }
-
-
-            //=====================================================
-            // Rigidbodyへ速度反映
-            //=====================================================
-
-            Vector3 velocity =
-                transform.forward *
-                m_CurrentSpeed;
-
-            // 重力だけ維持
-            velocity.y =
-                m_Rigidbody.linearVelocity.y;
-
-            m_Rigidbody.linearVelocity =
-                velocity;
-        }
-
-
-        // =====================================================
-        // ■ 回転処理
-        // =====================================================
-        //
-        // 現在速度に応じてハンドルの効きを変更する。
-        //
-        // ドリフト中は旋回性能を上げる。
-        //
-        // =====================================================
-
-        private void Turn()
-        {
-            // 停止中は回転しない
-            if (Mathf.Abs(m_CurrentSpeed) < 0.05f)
-            {
-                return;
-            }
-
-
-            //=====================================================
-            // 現在速度割合
-            //=====================================================
-
-            float speedRatio =
-                Mathf.Clamp01(
-                    Mathf.Abs(m_CurrentSpeed) /
-                    m_MaxSpeed
+                Debug.LogError(
+                    gameObject.name +
+                    " に InputReader がありません"
                 );
-
-
-            //=====================================================
-            // 低速でも少しだけ曲がれるようにする
-            //=====================================================
-
-            float steerPower =
-                Mathf.Lerp(
-                    0.3f,
-                    1f,
-                    speedRatio
-                );
-
-
-            //=====================================================
-            // ドリフト中
-            //=====================================================
-
-            if (m_IsDrifting)
-            {
-                steerPower *=
-                    m_DriftTurnMultiplier;
-            }
-
-
-            //=====================================================
-            // バック時は逆ハンドル
-            //=====================================================
-
-            float direction =
-                m_CurrentSpeed >= 0f
-                ? 1f
-                : -1f;
-
-
-            float turn =
-                m_TurnInput *
-                m_TurnSpeed *
-                steerPower *
-                direction *
-                Time.fixedDeltaTime;
-
-
-            Quaternion rotation =
-                Quaternion.Euler(
-                    0f,
-                    turn,
-                    0f
-                );
-
-
-            m_Rigidbody.MoveRotation(
-                m_Rigidbody.rotation *
-                rotation
-            );
         }
 
 
         // =====================================================
-        // ■ ドリフト更新
-        // =====================================================
-        //
-        // 一定速度以上でドリフトボタンを押すと
-        // ドリフト状態へ移行する。
-        //
-        // ボタンを離すと解除。
-        //
+        // ■ 入力取得・モデル演出
         // =====================================================
 
-        private void UpdateDrift()
+        void Update()
         {
-            // ドリフト開始条件
-            if (m_DriftInput &&
-                Mathf.Abs(m_CurrentSpeed) >=
-                m_DriftStartSpeed)
+            // InputReaderがなければ何もしない
+            if (m_InputReader == null) return;
+
+            // ── 入力の正規化（-1・0・1） ──────────────────────
+            // Signで-1・0・1に丸めてnormalizedの影響を排除
+            moveInput = Mathf.Sign(m_InputReader.MoveInput.y);
+            turnInput = Mathf.Sign(m_InputReader.MoveInput.x);
+
+            // 入力が小さいときはニュートラル扱い（デッドゾーン）
+            if (Mathf.Abs(m_InputReader.MoveInput.y) < 0.1f) moveInput = 0f;
+            if (Mathf.Abs(m_InputReader.MoveInput.x) < 0.1f) turnInput = 0f;
+
+            // ── ドリフト開始・終了判定 ────────────────────────
+            if (Input.GetKey(KeyCode.LeftShift) && moveInput > 0f)
             {
-                m_IsDrifting = true;
+                // 前進中かつShiftキー押下 → ドリフト可能
+                if (!drifting)
+                {
+                    // ドリフト開始した瞬間だけ上方向に小さく跳ねる（演出）
+                    rb.AddForce(Vector3.up * 20f, ForceMode.Impulse);
+
+                    // 開始時のみ方向を決定、以降は変更しない
+                    driftDirection = turnInput > 0 ? 1 : -1;
+                    drifting = true;
+                }
+                // ドリフト中は方向を更新しない（開始時の方向を維持）
             }
             else
             {
-                m_IsDrifting = false;
-            }
-        }
-
-
-        // =====================================================
-        // ■ ブースト開始
-        // =====================================================
-        //
-        // アイテム取得などから呼び出す。
-        //
-        // =====================================================
-
-        public void StartBoost()
-        {
-            // 既にブースト中なら無視
-            if (m_IsBoosting)
-            {
-                return;
+                // Shiftを離すか、前進していない → ドリフト終了
+                drifting = false;
             }
 
-            StartCoroutine(
-                BoostRoutine()
-            );
-        }
-
-
-        // =====================================================
-        // ■ ブースト処理
-        // =====================================================
-        //
-        // 一定時間だけ最高速度を上昇させる。
-        //
-        // =====================================================
-
-        private System.Collections.IEnumerator
-            BoostRoutine()
-        {
-            m_IsBoosting = true;
-
-            yield return new WaitForSeconds(
-                m_BoostTime
-            );
-
-            m_IsBoosting = false;
-        }
-
-
-        // =====================================================
-        // ■ ブースト停止
-        // =====================================================
-        //
-        // 強制的にブーストを終了する。
-        //
-        // =====================================================
-
-        public void StopBoost()
-        {
-            m_IsBoosting = false;
-        }
-
-                // =====================================================
-        // ■ 衝突開始
-        // =====================================================
-        //
-        // 壁に衝突した際に速度を減少させる。
-        //
-        // =====================================================
-
-        private void OnCollisionEnter(Collision collision)
-        {
-            // 壁に衝突した場合
-            if (collision.collider.CompareTag("Wall"))
+            // ── 車体モデルの演出（傾き・向きのズレ） ───────────
+            if (kartModel != null)
             {
-                // 現在速度を半減
-                m_CurrentSpeed *= 0.5f;
-            }
-        }
+                // ① ドリフト中はdriftDirection方向に傾き、通常時は0に戻す
+                float targetTilt = drifting ? driftDirection * driftTiltAngle : 0f;
 
+                // ② ドリフト中は車体がドリフト方向と逆に向く（マリカー風）
+                float targetAngle = drifting ? driftDirection * driftBodyAngle : 0f;
 
-        // =====================================================
-        // ■ 接触中
-        // =====================================================
-        //
-        // 現在走行している地面を判定する。
-        //
-        // Trackタグ
-        //     通常速度
-        //
-        // Groundタグ
-        //     芝生扱い
-        //
-        // Trackを最優先で判定することで、
-        // Groundとの二重判定による誤動作を防ぐ。
-        //
-        // =====================================================
+                // localEulerAnglesから読み取らず別変数で管理することで
+                // 0〜360正規化による角度の肥大化を防ぐ
+                currentModelAngle = Mathf.LerpAngle(
+                    currentModelAngle,
+                    targetAngle + targetTilt,
+                    Time.deltaTime * driftBodyAngleSpeed
+                );
 
-        private void OnCollisionStay(Collision collision)
-        {
-            // コース上
-            if (collision.collider.CompareTag("Track"))
-            {
-                m_IsOnGrass = false;
-                return;
-            }
-
-            // 芝生
-            if (collision.collider.CompareTag("Ground"))
-            {
-                m_IsOnGrass = true;
-            }
-        }
-
-
-        // =====================================================
-        // ■ 接触終了
-        // =====================================================
-        //
-        // コースから離れた場合は
-        // 芝生扱いに戻す。
-        //
-        // =====================================================
-
-        private void OnCollisionExit(Collision collision)
-        {
-            if (collision.collider.CompareTag("Track"))
-            {
-                m_IsOnGrass = true;
-            }
-        }
-
-
-        // =====================================================
-        // ■ 現在速度取得
-        // =====================================================
-        //
-        // UIやカメラなど他スクリプトから
-        // 現在速度を取得するためのプロパティ。
-        //
-        // 常に正の値を返す。
-        //
-        // =====================================================
-
-        public float CurrentSpeed
-        {
-            get
-            {
-                return Mathf.Abs(
-                    m_CurrentSpeed
+                // 車体モデルのY軸回転のみを更新（X, Zは元のまま）
+                kartModel.localEulerAngles = new Vector3(
+                    kartModel.localEulerAngles.x,
+                    currentModelAngle,
+                    kartModel.localEulerAngles.z
                 );
             }
         }
 
 
         // =====================================================
-        // ■ 停止
-        // =====================================================
-        //
-        // ゴール演出やゲーム終了時などで使用する。
-        //
-        // 車両の移動・回転を完全に停止する。
-        //
+        // ■ 物理演算
         // =====================================================
 
-        public void StopCar()
+        void FixedUpdate()
         {
-            // 内部速度初期化
-            m_CurrentSpeed = 0f;
+            // ── 跳ね防止：Y方向の速度を制限 ───────────────────
+            // 車が勝手に跳ね上がったり沈みすぎたりしないように制御
+            Vector3 vel = rb.linearVelocity;
+            vel.y = Mathf.Clamp(vel.y, -2f, 0.5f);
+            rb.linearVelocity = vel;
 
-            // Rigidbody速度停止
-            m_Rigidbody.linearVelocity =
-                Vector3.zero;
+            // ── 前進・後退（加速） ──────────────────────────
+            // 現在の速度が上限未満なら加速
+            if (rb.linearVelocity.magnitude < maxSpeed * currentSpeedMultiplier)
+            {
+                // 前進か後退かで加速度を切り替え
+                float accel = moveInput > 0 ? forwardAccel : reverseAccel;
 
-            // 回転停止
-            m_Rigidbody.angularVelocity =
-                Vector3.zero;
+                // 進行方向に力を加える（ForceMode.Accelerationなので質量無視）
+                rb.AddForce(
+                    transform.forward * accel * moveInput * currentSpeedMultiplier,
+                    ForceMode.Acceleration
+                );
+            }
 
-            // 入力値初期化
-            m_MoveInput = 0f;
-            m_TurnInput = 0f;
+            // ── 横方向のズレを補正 / ドリフト ─────────────────
+            // 速度をローカル座標系に変換して横方向だけを操作
+            Vector3 localVelocity =
+                transform.InverseTransformDirection(rb.linearVelocity);
 
-            // ドリフト解除
-            m_IsDrifting = false;
+            if (drifting)
+            {
+                // ドリフト中は横方向の速度を残して滑らせる
+                localVelocity.x = Mathf.Lerp(
+                    localVelocity.x,
+                    driftDirection * rb.linearVelocity.magnitude * driftSidewaysFriction,
+                    Time.fixedDeltaTime * 5f
+                );
+            }
+            else
+            {
+                // 通常時は横方向の速度を0にする（カートが横滑りしないように）
+                localVelocity.x = 0f;
+            }
 
-            // ブースト解除
-            m_IsBoosting = false;
+            // ローカル速度をワールド速度に戻す
+            rb.linearVelocity =
+                transform.TransformDirection(localVelocity);
+
+            // ── 減速・停止 ─────────────────────────────────
+            // ドリフト中は減速しない（アクセルオフでも滑り続ける）
+            if (Mathf.Abs(moveInput) < 0.1f && !drifting)
+            {
+                // 速度をゼロに向かって徐々に減速
+                rb.linearVelocity = Vector3.MoveTowards(
+                    rb.linearVelocity,
+                    Vector3.zero,
+                    brakeStrength * Time.fixedDeltaTime
+                );
+
+                // ほぼ止まっていれば完全に停止させる
+                if (rb.linearVelocity.magnitude < 0.01f)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                    rb.Sleep(); // 物理演算を一時停止して負荷軽減
+                }
+            }
+
+            // ── 旋回 ──────────────────────────────────────
+            // 前進または後退中のみ旋回可能
+            if (Mathf.Abs(moveInput) > 0.1f)
+            {
+                // ドリフト中は旋回倍率を掛ける
+                float turnMultiplier = drifting ? driftTurnMultiplier : 1.0f;
+
+                // 回転量 = 入力方向 × 旋回強さ × 倍率 × 時間 × 前進/後退の符号
+                float turn =
+                    turnInput * turnStrength * turnMultiplier *
+                    Time.fixedDeltaTime * Mathf.Sign(moveInput);
+
+                // Y軸回転のQuaternionを作成
+                Quaternion turnRotation =
+                    Quaternion.Euler(0f, turn, 0f);
+
+                // 現在の回転に掛け合わせて回転適用
+                rb.MoveRotation(rb.rotation * turnRotation);
+            }
+        }
+
+
+        // =====================================================
+        // ■ 地面との接触判定
+        // =====================================================
+
+        void OnCollisionEnter(Collision collision)
+        {
+            // Groundタグのオブジェクトに触れたら速度倍率を下げる
+            if (collision.gameObject.CompareTag("Ground"))
+                currentSpeedMultiplier = groundSpeedMultiplier;
+        }
+
+        void OnCollisionExit(Collision collision)
+        {
+            // Groundタグのオブジェクトから離れたら速度倍率を元に戻す
+            if (collision.gameObject.CompareTag("Ground"))
+                currentSpeedMultiplier = 1.0f;
         }
     }
 }
