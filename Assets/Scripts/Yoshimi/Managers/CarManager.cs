@@ -42,6 +42,9 @@ namespace Tanks.Complete
         // 車本体
         public GameObject m_Instance;
 
+        // ラップカウンター
+        private LapCounter m_LapCounter;
+
         // 勝利数
         [HideInInspector]
         public int m_Wins;
@@ -118,6 +121,18 @@ namespace Tanks.Complete
 
             m_InputReader =
                 m_Instance.GetComponent<InputReader>();
+
+            // LapCounter を取得
+            m_LapCounter =
+                m_Instance.GetComponent<LapCounter>();
+
+            if (m_LapCounter == null)
+            {
+                Debug.LogWarning(
+                    m_Instance.name +
+                    " に LapCounter がありません"
+                );
+            }
 
 
             // =================================================
@@ -325,6 +340,16 @@ namespace Tanks.Complete
 
             m_Instance.transform.rotation =
                 m_SpawnPoint.rotation;
+
+
+            // =================================================
+            // ラップもリセット
+            // =================================================
+
+            if (m_LapCounter != null)
+            {
+                m_LapCounter.ResetLap();
+            }
 
 
             // =================================================
