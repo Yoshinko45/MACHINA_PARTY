@@ -18,10 +18,6 @@ namespace Tanks.Complete
             Game       // ゲーム中
         }
 
-        // =====================================================
-        // ■ プレイヤー選択情報
-        // =====================================================
-        // メニュー画面で選択されたタンク情報を保持する
         public class PlayerData
         {
             // CPU操作かどうか
@@ -203,15 +199,14 @@ namespace Tanks.Complete
                         m_SpawnPoints[i].m_SpawnPoint.rotation
                     );
 
-                    // ★追加
-                    Debug.Log(
-                        "Spawned : " +
-                        m_SpawnPoints[i].m_Instance.name +
-                        "\nScene = " +
-                        m_SpawnPoints[i].m_Instance.scene.name +
-                        "\nValid = " +
-                        m_SpawnPoints[i].m_Instance.scene.IsValid()
-                    );
+                Debug.Log(
+                    "Spawned : " +
+                    m_SpawnPoints[i].m_Instance.name +
+                    "\nScene = " +
+                    m_SpawnPoints[i].m_Instance.scene.name +
+                    "\nValid = " +
+                    m_SpawnPoints[i].m_Instance.scene.IsValid()
+                );
 
                 // 初期状態では必ずプレイヤー操作
                 TankMovement mov =
@@ -247,7 +242,7 @@ namespace Tanks.Complete
         }
 
         // =====================================================
-        // ■ カメラ対象設定
+        // ■ カメラ追従対象設定
         // =====================================================
         private void SetCameraTargets()
         {
@@ -262,22 +257,17 @@ namespace Tanks.Complete
                     .transform;
             }
 
-            m_CameraControl.m_Targets =
-                targets;
+            if (m_CameraControl != null)
+            {
+                m_CameraControl.enabled = true;
+
+                m_CameraControl.m_Targets =
+                    targets;
+            }
         }
 
         // =====================================================
         // ■ メインゲームループ
-        // =====================================================
-        //
-        // RoundStarting
-        //      ↓
-        // RoundPlaying
-        //      ↓
-        // RoundEnding
-        //      ↓
-        // 次ラウンド
-        //
         // =====================================================
         private IEnumerator GameLoop()
         {
@@ -312,8 +302,11 @@ namespace Tanks.Complete
             // 操作禁止
             DisableTankControl();
 
-            // カメラ初期位置へ
-            m_CameraControl.SetStartPositionAndSize();
+            // カメラ位置とズームをリセット
+            if (m_CameraControl != null)
+            {
+                m_CameraControl.SetStartPositionAndSize();
+            }
 
             // ラウンド番号更新
             m_RoundNumber++;

@@ -98,8 +98,9 @@ namespace Tanks.Complete
         public void Setup(GameManager manager)
         {
             // =================================================
-            // タンク本体存在確認
+            // デバッグ情報表示
             // =================================================
+
             Debug.Log(
                 "Instance = " + m_Instance.name +
                 "\nScene = " + m_Instance.scene.name +
@@ -140,7 +141,6 @@ namespace Tanks.Complete
             Canvas canvas =
                 m_Instance.GetComponentInChildren<Canvas>();
 
-
             if (canvas != null)
             {
                 m_CanvasGameObject =
@@ -168,12 +168,13 @@ namespace Tanks.Complete
             }
 
 
-            // =================================================
-            // CPU設定
-            // =================================================
+            // =====================================================
+            // TankMovement設定
+            // =====================================================
 
             if (m_Movement != null)
             {
+                // CPU操作設定
                 m_Movement.m_IsComputerControlled =
                     m_ComputerControlled;
 
@@ -182,30 +183,37 @@ namespace Tanks.Complete
                     m_PlayerNumber;
             }
 
+
+            // =====================================================
+            // TankShooting設定
+            // =====================================================
+
             if (m_Shooting != null)
             {
                 m_Shooting.m_IsComputerControlled =
                     m_ComputerControlled;
+
+                m_Shooting.enabled = true;
             }
 
 
-            // =================================================
-            // 入力番号設定
-            // =================================================
+            // =====================================================
+            // 入力設定
+            // =====================================================
 
             if (m_InputReader != null)
             {
-                m_InputReader.ControlIndex =
-                    ControlIndex;
+                m_InputReader.ControlIndex = ControlIndex;
             }
 
 
-            // =================================================
+            // =====================================================
             // CPU設定
-            // =================================================
+            // =====================================================
 
             if (m_ComputerControlled)
             {
+                // AI未取得なら追加
                 if (m_AI == null)
                 {
                     m_AI = m_Instance.GetComponent<TankAI>();
@@ -214,7 +222,10 @@ namespace Tanks.Complete
                         m_AI = m_Instance.AddComponent<TankAI>();
                 }
 
+                // AI初期化
                 m_AI.Setup(manager);
+
+                // AI有効化
                 m_AI.enabled = true;
             }
             else
@@ -225,6 +236,7 @@ namespace Tanks.Complete
                 if (m_AI != null)
                     m_AI.enabled = false;
             }
+
 
             // =================================================
             // プレイヤー名カラー設定
@@ -244,47 +256,39 @@ namespace Tanks.Complete
             // タンクカラー変更
             // =================================================
 
-            #if UNITY_EDITOR
             Debug.Log(
-                    m_Instance.name +
-                    "  IsPersistent = " +
-                    UnityEditor.EditorUtility.IsPersistent(m_Instance)
-                );
-            #endif
+                m_Instance.name +
+                "  IsPersistent = " +
+                UnityEditor.EditorUtility.IsPersistent(m_Instance)
+            );
+
+            // TankColorという名前を含むマテリアルだけを
+            // プレイヤーカラーに変更する。
 
             MeshRenderer[] renderers =
                 m_Instance.GetComponentsInChildren<MeshRenderer>();
 
-
             for (int i = 0; i < renderers.Length; i++)
             {
-                MeshRenderer renderer =
-                    renderers[i];
+                MeshRenderer renderer = renderers[i];
 
+                Material[] materials = renderer.materials;
 
-                // マテリアル一覧
-               Material[] materials =
-                    renderer.materials;
-
-                for (int j = 0;
-                    j < materials.Length;
-                    j++)
+                for (int j = 0; j < materials.Length; j++)
                 {
-                    Material mat =
-                        materials[j];
+                    Material mat = materials[j];
 
                     if (mat == null)
-                    {
                         continue;
-                    }
 
+                    // TankColorのみ色変更
                     if (mat.name.Contains("TankColor"))
                     {
-                        mat.color =
-                            m_PlayerColor;
+                        mat.color = m_PlayerColor;
                     }
                 }
             }
+
 
             // =================================================
             // デバッグ表示
@@ -315,13 +319,11 @@ namespace Tanks.Complete
                 m_Movement.enabled = false;
             }
 
-
             // 発射停止
             if (m_Shooting != null)
             {
                 m_Shooting.enabled = false;
             }
-
 
             // AI停止
             if (m_ComputerControlled &&
@@ -329,7 +331,6 @@ namespace Tanks.Complete
             {
                 m_AI.enabled = false;
             }
-
 
             // UI非表示
             if (m_CanvasGameObject != null)
@@ -351,21 +352,18 @@ namespace Tanks.Complete
                 m_Movement.enabled = true;
             }
 
-
             // 発射有効
             if (m_Shooting != null)
             {
                 m_Shooting.enabled = true;
             }
 
-
-            // AI有効
+            // AI再有効化
             if (m_ComputerControlled &&
                 m_AI != null)
             {
                 m_AI.enabled = true;
             }
-
 
             // UI表示
             if (m_CanvasGameObject != null)
@@ -518,7 +516,6 @@ namespace Tanks.Complete
                     "Player Color"
                 )
             );
-
 
 
             // =================================================

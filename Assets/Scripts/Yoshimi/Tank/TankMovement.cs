@@ -13,6 +13,25 @@ namespace Tanks.Complete
     public class TankMovement : MonoBehaviour
     {
         // =====================================================
+        // ■ 移動モード
+        // =====================================================
+        //
+        // TankMovementは
+        // タンクバトルモードと
+        // レースモードの両方に対応している。
+        //
+        // TankBattle
+        //     従来の戦車操作
+        //
+        // Race
+        //     車のような加速方式
+        //
+        public enum MovementProfile
+        {
+            TankBattle // タンクvsタンクモード
+        }
+
+        // =====================================================
         // ■ プレイヤー設定
         // =====================================================
 
@@ -29,6 +48,9 @@ namespace Tanks.Complete
 
         [Header("Movement")]
 
+        public MovementProfile m_MovementProfile =
+            MovementProfile.TankBattle;
+
         // タンク移動速度
         public float m_Speed = 12f;
 
@@ -38,7 +60,6 @@ namespace Tanks.Complete
         // trueならカメラ方向基準で移動する
         // TPS風操作になる
         public bool m_IsDirectControl;
-
 
         // =====================================================
         // ■ サウンド設定
@@ -100,7 +121,6 @@ namespace Tanks.Complete
         // ゲームパッド操作中か
         // trueならカメラ方向移動を使用
         private bool m_UsingGamepadScheme;
-
 
         // =====================================================
         // ■ 爆風関連
@@ -202,14 +222,11 @@ namespace Tanks.Complete
             // 爆風速度初期化
             m_ExplosionVelocity = Vector3.zero;
 
-
             // =================================================
             // Particle取得
             // =================================================
-
             m_particleSystems =
                 GetComponentsInChildren<ParticleSystem>();
-
 
             // =================================================
             // Particle再生
@@ -338,7 +355,6 @@ namespace Tanks.Complete
                 Mathf.Abs(m_MovementInputValue) > 0.1f ||
                 Mathf.Abs(m_TurnInputValue) > 0.1f;
 
-
             // =================================================
             // 停止中
             // =================================================
@@ -399,10 +415,9 @@ namespace Tanks.Complete
         // =====================================================
 
         private void Move()
-        {
+        {   
             // 実際に進む方向
             Vector3 moveDirection;
-
 
             // =================================================
             // カメラ方向基準移動
@@ -523,13 +538,8 @@ namespace Tanks.Complete
                 );
         }
 
-
-        // =====================================================
-        // ■ 回転処理
-        // =====================================================
-
         private void Turn()
-        {
+        { 
             // =================================================
             // カメラ方向移動中は不要
             // =================================================
@@ -558,7 +568,6 @@ namespace Tanks.Complete
                 0f
             );
         }
-
 
         // =====================================================
         // ■ 回転ズレ修正

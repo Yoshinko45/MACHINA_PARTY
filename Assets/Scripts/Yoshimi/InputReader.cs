@@ -100,8 +100,8 @@ namespace Tanks.Complete
 
             MoveInput = Vector2.zero;
 
-            FirePressed = false;
-            FireHeld = false;
+            FirePressed  = false;
+            FireHeld     = false;
             FireReleased = false;
 
             IsUsingGamepad = false;
@@ -161,217 +161,74 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ WASD入力
+        // ■ WASD入力（TankBattleモード）
         // =====================================================
 
         private void ReadWASDInput()
         {
-            // キーボード未接続
             if (Keyboard.current == null)
-            {
                 return;
-            }
-
 
             float x = 0f;
             float y = 0f;
 
+            if (Keyboard.current.aKey.isPressed) x -= 1f;
+            if (Keyboard.current.dKey.isPressed) x += 1f;
+            if (Keyboard.current.wKey.isPressed) y += 1f;
+            if (Keyboard.current.sKey.isPressed) y -= 1f;
 
-            // =================================================
-            // 左右入力
-            // =================================================
+            MoveInput = new Vector2(x, y).normalized;
 
-            if (Keyboard.current.aKey.isPressed)
-            {
-                x -= 1f;
-            }
-
-            if (Keyboard.current.dKey.isPressed)
-            {
-                x += 1f;
-            }
-
-
-            // =================================================
-            // 前後入力
-            // =================================================
-
-            if (Keyboard.current.wKey.isPressed)
-            {
-                y += 1f;
-            }
-
-            if (Keyboard.current.sKey.isPressed)
-            {
-                y -= 1f;
-            }
-
-
-            // =================================================
-            // 斜め移動速度補正
-            // =================================================
-
-            MoveInput =
-                new Vector2(x, y).normalized;
-
-
-            // =================================================
-            // 発射入力
-            // =================================================
-
-            FirePressed =
-                Keyboard.current.spaceKey
-                .wasPressedThisFrame;
-
-            FireReleased =
-                Keyboard.current.spaceKey
-                .wasReleasedThisFrame;
-
-            FireHeld =
-                Keyboard.current.spaceKey
-                .isPressed;
+            FirePressed  = Keyboard.current.spaceKey.wasPressedThisFrame;
+            FireReleased = Keyboard.current.spaceKey.wasReleasedThisFrame;
+            FireHeld     = Keyboard.current.spaceKey.isPressed;
         }
 
 
         // =====================================================
-        // ■ 矢印キー入力
+        // ■ 矢印キー入力（TankBattleモード）
         // =====================================================
 
         private void ReadArrowInput()
         {
-            // キーボード未接続
             if (Keyboard.current == null)
-            {
                 return;
-            }
-
 
             float x = 0f;
             float y = 0f;
 
+            if (Keyboard.current.leftArrowKey.isPressed)  x -= 1f;
+            if (Keyboard.current.rightArrowKey.isPressed) x += 1f;
+            if (Keyboard.current.upArrowKey.isPressed)    y += 1f;
+            if (Keyboard.current.downArrowKey.isPressed)  y -= 1f;
 
-            // =================================================
-            // 左右入力
-            // =================================================
+            MoveInput = new Vector2(x, y).normalized;
 
-            if (Keyboard.current.leftArrowKey.isPressed)
-            {
-                x -= 1f;
-            }
-
-            if (Keyboard.current.rightArrowKey.isPressed)
-            {
-                x += 1f;
-            }
-
-
-            // =================================================
-            // 前後入力
-            // =================================================
-
-            if (Keyboard.current.upArrowKey.isPressed)
-            {
-                y += 1f;
-            }
-
-            if (Keyboard.current.downArrowKey.isPressed)
-            {
-                y -= 1f;
-            }
-
-
-            // =================================================
-            // 斜め移動補正
-            // =================================================
-
-            MoveInput =
-                new Vector2(x, y).normalized;
-
-
-            // =================================================
-            // 発射入力
-            // =================================================
-
-            FirePressed =
-                Keyboard.current.enterKey
-                .wasPressedThisFrame;
-
-            FireReleased =
-                Keyboard.current.enterKey
-                .wasReleasedThisFrame;
-
-            FireHeld =
-                Keyboard.current.enterKey
-                .isPressed;
+            FirePressed  = Keyboard.current.enterKey.wasPressedThisFrame;
+            FireReleased = Keyboard.current.enterKey.wasReleasedThisFrame;
+            FireHeld     = Keyboard.current.enterKey.isPressed;
         }
 
 
         // =====================================================
-        // ■ ゲームパッド入力
+        // ■ ゲームパッド入力（TankBattleモード）
         // =====================================================
-
-        /// <summary>
-        /// 指定番号のゲームパッド入力取得
-        /// </summary>
-        /// <param name="index">
-        /// Gamepad番号
-        /// </param>
 
         private void ReadGamepadInput(int index)
         {
-            // =================================================
-            // 指定番号が存在するか
-            // =================================================
-
             if (Gamepad.all.Count <= index)
-            {
                 return;
-            }
 
+            Gamepad pad = Gamepad.all[index];
 
-            // =================================================
-            // Gamepad取得
-            // =================================================
-
-            Gamepad pad =
-                Gamepad.all[index];
-
-
-            // Gamepad無効
             if (pad == null)
-            {
                 return;
-            }
 
+            MoveInput = pad.leftStick.ReadValue();
 
-            // =================================================
-            // スティック入力
-            // =================================================
-
-            MoveInput =
-                pad.leftStick.ReadValue();
-
-
-            // =================================================
-            // 発射入力
-            // =================================================
-
-            FirePressed =
-                pad.buttonSouth
-                .wasPressedThisFrame;
-
-            FireReleased =
-                pad.buttonSouth
-                .wasReleasedThisFrame;
-
-            FireHeld =
-                pad.buttonSouth
-                .isPressed;
-
-
-            // =================================================
-            // ゲームパッド使用中
-            // =================================================
+            FirePressed  = pad.buttonSouth.wasPressedThisFrame;
+            FireReleased = pad.buttonSouth.wasReleasedThisFrame;
+            FireHeld     = pad.buttonSouth.isPressed;
 
             IsUsingGamepad = true;
         }
