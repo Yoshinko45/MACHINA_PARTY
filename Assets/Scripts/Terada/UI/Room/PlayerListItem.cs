@@ -1,10 +1,13 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerListItem : MonoBehaviour
 {
     [SerializeField] Text nameText;
-    [SerializeField] Text readyText;
+
+    [SerializeField] Image readyIcon;
+    [SerializeField] Sprite readySprite;
+    [SerializeField] Sprite notReadySprite;
 
     NetworkPlayer player;
 
@@ -18,6 +21,8 @@ public class PlayerListItem : MonoBehaviour
         if (player == null) return;
 
         nameText.text = player.PlayerName.ToString();
-        readyText.text = player.IsReady ? "Ready!!" : "Ready??";
+
+        // 全員共通のReadyアイコン
+        readyIcon.sprite = player.IsReady ? readySprite : notReadySprite;
     }
 }

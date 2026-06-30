@@ -17,28 +17,6 @@ public class LobbyUIManager : MonoBehaviour
 
     async void Start()
     {
-        // Inspector の割り当てチェック（早期にエラーを通知して処理停止）
-        if (lobbyPanel == null)
-        {
-            Debug.LogError("[LobbyUIManager] lobbyPanel is not assigned in the Inspector. UI will not show.");
-            enabled = false;
-            return;
-        }
-
-        if (roomPrefab == null)
-        {
-            Debug.LogError("[LobbyUIManager] roomPrefab is not assigned in the Inspector. Room list entries cannot be created.");
-            enabled = false;
-            return;
-        }
-
-        if (parent == null)
-        {
-            Debug.LogError("[LobbyUIManager] parent (Room list container) is not assigned in the Inspector. Instantiate target missing.");
-            enabled = false;
-            return;
-        }
-
         initCTS = new CancellationTokenSource();
         try
         {

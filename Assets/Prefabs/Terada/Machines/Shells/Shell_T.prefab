@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: -927890215427519120}
   - component: {fileID: 8186506382544667744}
   - component: {fileID: -8341836717581707932}
+  - component: {fileID: -8034925195922695616}
   m_Layer: 0
   m_Name: Shell_T
   m_TagString: Untagged
@@ -280,6 +281,7 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: -8341836717581707932}
+  - {fileID: -8034925195922695616}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &-8341836717581707932
 MonoBehaviour:
@@ -304,6 +306,27 @@ MonoBehaviour:
     Position: 0.01
     Rotation: 0.01
     Scale: 0.01
+--- !u!114 &-8034925195922695616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 192454}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b184103c7325914a82204b0db260553, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.Shell_Explosion
+  tankMask:
+    serializedVersion: 2
+    m_Bits: 512
+  explosionParticles: {fileID: 6950372259472959370}
+  explosionAudio: {fileID: 9184786572633591583}
+  maxLifeTime: 2
+  m_MaxDamage: 100
+  m_ExplosionForce: 50
+  m_ExplosionRadius: 5
 --- !u!1001 &6950372259491175068
 PrefabInstance:
   m_ObjectHideFlags: 0

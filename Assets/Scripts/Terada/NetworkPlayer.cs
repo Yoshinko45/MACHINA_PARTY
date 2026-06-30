@@ -5,18 +5,23 @@ using UnityEngine;
 // プレイヤーの同期データ管理クラス.
 public class NetworkPlayer : NetworkBehaviour
 {
+    // プレイヤー名.
     [Networked] public NetworkString<_16> PlayerName { get; set; }
+    // Room内でのプレイヤーごとの状態（全員Readyでゲームスタートできる）.
     [Networked] public bool IsReady { get; set; }
 
     [Networked, OnChangedRender(nameof(OnVehicleChanged))]
     public NetworkObject VehicleObject { get; set; }
+
+    [Networked] public VehicleType TankVehicleType { get; set; }
+    [Networked] public VehicleType RaceVehicleType { get; set; }
 
     [SerializeField] float interactDistance = 5f;
 
     // ローカルのプレイヤー取得用.
     public static NetworkPlayer LocalPlayer;
 
-    private NetworkCharacterController charactorController;
+    //private NetworkCharacterController charactorController;
     private CameraFollow cam;
 
     // 直前の入力状態保存用.
@@ -25,8 +30,17 @@ public class NetworkPlayer : NetworkBehaviour
     // プレイヤー生成時の処理.
     public override void Spawned()
     {
-        charactorController = GetComponent<NetworkCharacterController>();
+        //charactorController = GetComponent<NetworkCharacterController>();
         cam = Camera.main.GetComponent<CameraFollow>();
+
+        if (Object.HasStateAuthority)
+        {
+            RPC_SetName("Host_" + Random.Range(10, 99));
+
+            // ルームに入ったらデフォルトで最初の車両を登録.
+            TankVehicleType = VehicleType.NormalTank;
+            RaceVehicleType = VehicleType.RaceCar;
+        }
 
         if (Object.HasInputAuthority)
         {
@@ -39,6 +53,8 @@ public class NetworkPlayer : NetworkBehaviour
 
             RPC_SetName("Player_" + Random.Range(100, 999));
         }
+
+        PlayerListManager.Instance?.Refresh();
     }
 
     // ネットワーク更新ごとの処理.
@@ -51,16 +67,8 @@ public class NetworkPlayer : NetworkBehaviour
         if (!GetInput(out PlayerInputData data))
             return;
 
-        // 車にPlayerInputDataから取得した入力を渡す.
-        VehicleObject
-            ?.GetComponent<IVehicle>()
-            ?.SetInput(data);
-
         var attackvehicle = VehicleObject
             ?.GetComponent<IAttackVehicle>();
-        //VehicleObject
-        //    ?.GetComponent<IAttackVehicle>();
-        //?.SetAttackInput(data);
 
         // 攻撃車両の入力処理.
         if (attackvehicle != null)
@@ -93,20 +101,6 @@ public class NetworkPlayer : NetworkBehaviour
         }
     }
 
-    void OnVehicleChanged()
-    {
-        if (!Object.HasInputAuthority)
-            return;
-
-        if (VehicleObject == null)
-            return;
-
-        cam.SetTarget(VehicleObject.transform);
-
-        var tankVehicle = VehicleObject.GetComponent<TankVehicle>();
-        TankAimUI.Instance?.SetVehicleShot(tankVehicle);
-    }
-
     void TryInteract()
     {
         if (VehicleObject == null)
@@ -137,6 +131,83 @@ public class NetworkPlayer : NetworkBehaviour
         }
     }
 
+    public void SpawnVehicle(GameModes mode)
+    {
+        Debug.Log($"GameSettings null? {GameSettings.Instance == null}");
+        Debug.Log($"VehicleDB null? {VehicleDatabase.Instance == null}");
+        Debug.Log($"Mode = {GameSettings.Instance?.CurrentMode}");
+        if (!Object.HasStateAuthority)
+            return;
+
+        var type =
+            mode == GameModes.Tank
+            ? TankVehicleType
+            : RaceVehicleType;
+
+        var prefab =
+            VehicleDatabase.Instance.GetPrefab(type);
+
+        VehicleObject = Runner.Spawn(
+            prefab,
+            Vector3.zero,
+            Quaternion.identity,
+            Object.InputAuthority
+        );
+    }
+
+    void OnVehicleChanged()
+    {
+        if (!Object.HasInputAuthority)
+            return;
+
+        if (VehicleObject == null)
+            return;
+
+        var tankVehicle = VehicleObject.GetComponent<TankVehicle>();
+        if (tankVehicle == null)
+            return;
+
+        if (cam == null)
+            cam = Camera.main?.GetComponent<CameraFollow>();
+
+        if (cam == null)
+            return;
+
+        cam.SetTarget(tankVehicle.Move.VisualRoot);
+        TankAimUI.Instance?.SetVehicleShot(tankVehicle);
+    }
+
+    // ゲームモードに合わせて車両を変更.
+    // ゲーム開始時に使う.
+    void ChangeCurrentVehicle(GameModes gameMode)
+    {
+        Vector3 spawnPos = Vector3.zero;
+
+        Debug.Log($"[ChangeCurrentVehicle] mode={gameMode}");
+
+        if (VehicleObject != null)
+        {
+            Debug.Log("old vehicle exists");
+            spawnPos = VehicleObject.transform.position;
+            spawnPos.y = 0f;
+            Runner.Despawn(VehicleObject);
+        }
+
+        VehicleType type =
+            gameMode == GameModes.Tank
+            ? TankVehicleType
+            : RaceVehicleType;
+
+        var prefab =
+            VehicleDatabase.Instance.GetPrefab(type);
+
+        VehicleObject = Runner.Spawn(
+            prefab,
+            spawnPos,
+            Quaternion.identity,
+            Object.InputAuthority);
+    }
+
     public void SetVehicle(NetworkObject vehicle)
     {
         VehicleObject = vehicle;
@@ -155,32 +226,24 @@ public class NetworkPlayer : NetworkBehaviour
     }
 
     /// <summary>
-    /// 車変更用関数
+    /// 車両変更用関数.
     /// </summary>
-    /// <param name="vehicleID"></param>
+    /// <param name="gameMode"></param>
+    /// <param name="type"></param>
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_ChangeVehicle(int vehicleID)
+    public void RPC_ChangeVehicle(GameModes gameMode, VehicleType type)
     {
-        Vector3 spawnPos = transform.position;
-
-        // 現在の車を削除.
-        if (VehicleObject != null)
+        switch (gameMode)
         {
-            spawnPos = VehicleObject.transform.position;
-            Runner.Despawn(VehicleObject);
+            case GameModes.Tank:
+                TankVehicleType = type;
+                break;
+            case GameModes.Race:
+                RaceVehicleType = type;
+                break;
         }
 
-        // データベースからIDを取得.
-        var prefab = VehicleDatabase.Instance.GetPrefab(vehicleID);
-
-        // 新しく生成し、Object を更新.
-        var newVehicle = Runner.Spawn(
-            prefab,
-            spawnPos,
-            Quaternion.identity,
-            Object.InputAuthority
-        );
-        // Networked同期.
-        VehicleObject = newVehicle;
+        ChangeCurrentVehicle(gameMode);
     }
+
 }

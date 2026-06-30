@@ -463,6 +463,7 @@
 //}
 
 using Fusion;
+using System;
 using UnityEngine;
 
 namespace Tanks.Complete
@@ -471,56 +472,199 @@ namespace Tanks.Complete
     {
         [SerializeField] float moveSpeed = 12f;
         [SerializeField] float turnSpeed = 180f;
+        [SerializeField] Transform visualRoot;
 
-        Rigidbody rb;
+        [Networked] Vector3 ServerPosition { get; set; }
+        [Networked] Quaternion ServerRotation { get; set; }
+        [Networked] int ServerTick { get; set; }
 
-        [Networked] float throttle { get; set; }
-        [Networked] float steering {  get; set; }
+        Vector3 renderPosition;
+        Quaternion renderRotation;
 
-        void Awake()
+        public Transform VisualRoot => visualRoot;
+
+        const float posDistance = 0.5f;
+        const float rotDistance = 5f;
+
+        const int BufferSize = 1024;
+
+        PredictionBuffer<InputState> inputBuffer =
+        new PredictionBuffer<InputState>(BufferSize);
+
+        PredictionBuffer<StateSnapshot> snapBuffer =
+        new PredictionBuffer<StateSnapshot>(BufferSize);
+
+        IInputSource inputSource;
+
+        public override void Spawned()
         {
-            rb = GetComponent<Rigidbody>();
+            inputSource = GetComponent<IInputSource>();
+
+            renderPosition = transform.position;
+            renderRotation = transform.rotation;
+
+            ServerPosition = transform.position;
+            ServerRotation = transform.rotation;
         }
 
-        // TankVehicleのSetInputから呼び出される移動入力のセット処理.
-        public void SetMoveInput(float throttleInput, float steeringInput)
+        private void Update()
         {
-            throttle = throttleInput;
-            steering = steeringInput;
+            Debug.Log(InputManager.Instance.Move);
         }
 
         public override void FixedUpdateNetwork()
         {
-            if (!Object.HasStateAuthority)
-                return;
+            InputState input = default;
 
-            Move();
-            Rotate();
+            if (inputSource != null)
+            {
+                input = inputSource.GetInput();
+            }
 
-            // 旧式の移動処理（positionとrotationを直接いじってるので非推奨）.
-            //transform.Rotate(0, steering * turnSpeed * Runner.DeltaTime, 0);
+            if (HasStateAuthority)
+            {
+                Debug.Log(
+                    $"HOST Tick={Runner.Tick} " +
+                    $"ServerTick={ServerTick}");
+            }
 
-            //transform.position += 
-            //    transform.forward *
-            //    throttle *
-            //    moveSpeed *
-            //    Runner.DeltaTime;
+            if (HasInputAuthority)
+            {
+                Debug.Log(
+                    $"CLIENT Tick={Runner.Tick} " +
+                    $"ServerTick={ServerTick}");
+            }
+
+            // ホスト.
+            if (HasStateAuthority)
+            {
+                SimulateMove(input.Throttle, input.Steering);
+
+                ServerPosition = transform.position;
+                ServerRotation = transform.rotation;
+                ServerTick = Runner.Tick;
+            }
+            else if (HasInputAuthority) // クライアント.
+            {
+                Reconcile();
+                PredictMove(input);
+            }
+            
+            if (!HasInputAuthority && !HasStateAuthority)
+            {
+                Debug.Log($"Remote Tank SeverPos={ServerPosition}");
+
+                transform.position = ServerPosition;
+                transform.rotation = ServerRotation;
+            }
+
         }
 
-        void Rotate()
+        void PredictMove(InputState input)
         {
-            float turn = steering * turnSpeed * Runner.DeltaTime;
+            Debug.Log($"Predict Tick={Runner.Tick} InputTick={input.Tick} Pos={transform.position}");
 
-            Quaternion rotation = Quaternion.Euler(0, turn, 0);
+            inputBuffer.Set(input.Tick, input);
 
-            rb.MoveRotation(rb.rotation * rotation);
+            SimulateMove(
+                input.Throttle,
+                input.Steering);
+
+            StateSnapshot snapshot = new()
+            {
+                Tick = input.Tick,
+                Position = transform.position,
+                Rotation = transform.rotation,
+            };
+
+            snapBuffer.Set(input.Tick, snapshot);
+
+            Debug.Log($"Save Tick={input.Tick} Pos={snapshot.Position}");
         }
 
-        void Move()
+        void SimulateMove(float throttleInput, float steeringInput)
         {
-            Vector3 velocity = transform.forward * throttle * moveSpeed * Runner.DeltaTime;
+            float turn = steeringInput * turnSpeed * Runner.DeltaTime;
 
-            rb.MovePosition(rb.position + velocity);
+            transform.Rotate(0, turn, 0, Space.Self);
+
+            transform.position +=
+                transform.forward *
+                throttleInput *
+                moveSpeed *
+                Runner.DeltaTime;
+        }
+
+        void Reconcile()
+        {
+            StateSnapshot predicted = snapBuffer.Get(ServerTick);
+            Debug.Log($"Load Tick={ServerTick} Pos={predicted.Position}");
+            Debug.Log($"SeverPos={ServerPosition} PredPos={predicted.Position}");
+            Debug.Log($"Reconcile Runner={Runner.Tick} ServerTick={ServerTick} PredTick={predicted.Tick}");
+
+            float posError =
+                Vector3.Distance(
+                    predicted.Position,
+                    ServerPosition);
+
+            float rotError =
+                Quaternion.Angle(
+                    predicted.Rotation,
+                    ServerRotation);
+
+            Debug.Log($"Error Pos={posError:F3} Rot={rotError:F2}");
+
+            if (posError >= posDistance && rotError >= rotDistance)
+            {
+                Debug.Log($"RollBack Runner={Runner.Tick} ServerTick={ServerTick}");
+
+                transform.position = ServerPosition;
+                transform.rotation = ServerRotation;
+            }
+
+            int currentTick = Runner.Tick;
+
+            for (int tick = ServerTick + 1; tick <= currentTick; tick++)
+            {
+                Debug.Log($"CurrentPos={transform.position}");
+                Debug.Log($"Replay Tick={tick}");
+
+                InputState input = inputBuffer.Get(tick);
+
+                SimulateMove(input.Throttle, input.Steering);
+            }
+
+        }
+
+        public override void Render()
+        {
+            if (HasInputAuthority)
+            {
+                renderPosition = Vector3.Lerp(
+                    renderPosition,
+                    transform.position,
+                    Time.deltaTime * 20f);
+
+                renderRotation = Quaternion.Slerp(
+                    renderRotation,
+                    transform.rotation,
+                    Time.deltaTime * 20f);
+            }
+            else
+            {
+                renderPosition = Vector3.Lerp(
+                    renderPosition,
+                    ServerPosition,
+                    Time.deltaTime * 10f);
+
+                renderRotation = Quaternion.Slerp(
+                    renderRotation,
+                    ServerRotation,
+                    Time.deltaTime * 10f);
+            }
+
+            visualRoot.position = renderPosition;
+            visualRoot.rotation = renderRotation;
         }
     }
 }

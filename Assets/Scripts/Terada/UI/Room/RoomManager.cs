@@ -1,3 +1,4 @@
+using Fusion;
 using UnityEngine;
 
 public class RoomManager : MonoBehaviour
@@ -6,7 +7,6 @@ public class RoomManager : MonoBehaviour
 
     void Start()
     {
-        NetworkManager.Instance.OnPlayerJoinedEvent += Refresh;
         NetworkManager.Instance.OnPlayerLeftEvent += Refresh;
     }
 
@@ -14,8 +14,12 @@ public class RoomManager : MonoBehaviour
     {
         if (NetworkManager.Instance == null) return;
 
-        NetworkManager.Instance.OnPlayerJoinedEvent -= Refresh;
         NetworkManager.Instance.OnPlayerLeftEvent -= Refresh;
+    }
+
+    void OnPlayerLeft(PlayerRef player)
+    {
+        playerList.Refresh();
     }
 
     bool AllReady()
