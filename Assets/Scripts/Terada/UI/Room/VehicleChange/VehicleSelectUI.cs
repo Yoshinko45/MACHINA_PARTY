@@ -1,3 +1,4 @@
+using Tanks.Complete;
 using UnityEngine;
 
 public class VehicleSelectUI : MonoBehaviour
@@ -6,7 +7,9 @@ public class VehicleSelectUI : MonoBehaviour
 
     [SerializeField] GameObject panel;
     [SerializeField] VehicleSelectItem itemPrefab;
-    [SerializeField] Transform contentParent;
+    [SerializeField]Transform[] pages; 
+
+    int currentPage = 0;
 
     private void Awake()
     {
@@ -15,24 +18,69 @@ public class VehicleSelectUI : MonoBehaviour
 
     private void Start()
     {
-        CreateVehicleList();
+        CreateVehicleList(GameModes.Tank, pages[0]);
+        CreateVehicleList(GameModes.Race, pages[1]);
     }
 
-    void CreateVehicleList()
+    void Update()
     {
-        VehicleDatabase db = VehicleDatabase.Instance;
+        if (!panel.activeSelf)
+            return;
 
-        for (int i = 0; i < db.vehicles.Length; i++)
+        if (InputManager.Instance.ConsumePageLeftPressed())
         {
-            VehicleSelectItem item = Instantiate(itemPrefab, contentParent);
+            PrevPage();
+        }
 
-            item.Setup(i, db.vehicles[i]);
+        if (InputManager.Instance.ConsumePageRightPressed())
+        {
+            NextPage();
+        }
+    }
+
+    void CreateVehicleList(GameModes mode, Transform parent)
+    {
+        foreach (var data in VehicleDatabase.Instance.vehicles)
+        {
+            if (data.gameModes != mode)
+                continue;
+
+            var item = Instantiate(itemPrefab, parent);
+
+            item.Setup(data);
+        }
+    }
+
+    public void NextPage()
+    {
+        currentPage++;
+        if (currentPage >= pages.Length)
+            currentPage = 0;
+        ShowPage(currentPage);
+    }
+
+    public void PrevPage()
+    {
+        currentPage--;
+
+        if (currentPage < 0)
+            currentPage = pages.Length -1;
+
+        ShowPage(currentPage);
+    }
+
+    void ShowPage(int page)
+    {
+        for (int i = 0; i < pages.Length; i++)
+        {
+            pages[i].gameObject.SetActive(i == page);
         }
     }
 
     public void Open()
     {
         panel.SetActive(true);
+        ShowPage(currentPage);
     }
 
     public void Close()
@@ -40,9 +88,19 @@ public class VehicleSelectUI : MonoBehaviour
         panel.SetActive(false);
     }
 
-    public void SelectVehicle(int id)
+    public void SelectVehicle(VehicleType type)
     {
-        NetworkPlayer.LocalPlayer.RPC_ChangeVehicle(id);
+        var runner = NetworkManager.Instance.Runner;
+
+        var player = NetworkPlayer.LocalPlayer;
+
+        if (player == null)
+            return;
+
+        player.RPC_ChangeVehicle(
+            GameSettings.Instance.CurrentMode,
+            type
+        );
 
         Close();
     }

@@ -41,8 +41,6 @@ GameObject:
   m_Component:
   - component: {fileID: 426417184117171986}
   - component: {fileID: 5476154788561680314}
-  - component: {fileID: 3086817316617140328}
-  - component: {fileID: 3137981466011381158}
   - component: {fileID: -8585353111235253074}
   m_Layer: 0
   m_Name: NetworkPlayer
@@ -84,51 +82,10 @@ MonoBehaviour:
     _data:
       Data: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
   _IsReady: 0
-  _VehicleObject: {fileID: 0}
---- !u!143 &3086817316617140328
-CharacterController:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7955297539203330631}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Height: 2
-  m_Radius: 0.5
-  m_SlopeLimit: 45
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.08
-  m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &3137981466011381158
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7955297539203330631}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 378411a89480da345945c2f888327a2d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Fusion.Unity::Fusion.NetworkCharacterController
-  _stateAuthorityChangeErrorCorrectionDelta: 0
-  gravity: -20
-  jumpImpulse: 8
-  acceleration: 10
-  braking: 10
-  maxSpeed: 2
-  rotationSpeed: 15
+  _VehicleObject: {fileID: 3832375398492558207, guid: ccf7df6188620d44d9695213b38c0935, type: 3}
+  _TankVehicleType: 0
+  _RaceVehicleType: 0
+  interactDistance: 5
 --- !u!114 &-8585353111235253074
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -147,5 +104,4 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 5476154788561680314}
-  - {fileID: 3137981466011381158}
   ForceRemoteRenderTimeframe: 0

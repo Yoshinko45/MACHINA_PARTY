@@ -126,6 +126,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         await ShutdownRunnerAsync();
 
         bool success = await ConnectAsync(connectCTS.Token);
+
         if (!success)
         {
             StartReconnect();
@@ -225,12 +226,11 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
                 Debug.LogError(
                     "Connection Timeout");
 
+                await newRunner.Shutdown();
+
                 newRunner.RemoveCallbacks(this);
 
-                if (Runner == newRunner)
-                {
-                    Runner = null;
-                }
+                if (Runner == newRunner) Runner = null;
 
                 Destroy(newRunner.gameObject);
 
@@ -359,8 +359,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     async void StartReconnect()
     {
-        if (isReconnecting)
-            return;
+        if (isReconnecting) return;
 
         isReconnecting = true;
 
@@ -385,19 +384,14 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
                 Debug.Log($"Reconnect Wait: {waitTime}");
 
-                await Task.Delay(
-                    TimeSpan.FromSeconds(waitTime),
-                    reconnectCTS.Token);
+                await Task.Delay(TimeSpan.FromSeconds(waitTime), reconnectCTS.Token);
 
                 connectCTS?.Cancel();
                 connectCTS?.Dispose();
 
                 connectCTS = new CancellationTokenSource();
 
-                if (Runner != null)
-                {
-                    await ShutdownRunnerAsync();
-                }
+                if (Runner != null) await ShutdownRunnerAsync();
 
                 bool success = await ConnectAsync(connectCTS.Token);
 

@@ -1,10 +1,13 @@
 using Fusion;
+using Tanks.Complete;
 using UnityEngine;
 
 public class SpawnManager : MonoBehaviour
 {
+    public GameModes CurrentMode { get; set; }
+
     [SerializeField] NetworkPrefabRef playerPrefab;
-    [SerializeField] NetworkPrefabRef testCarPrefab;
+    //[SerializeField] NetworkPrefabRef carPrefab;
 
     void Start()
     {
@@ -23,7 +26,7 @@ public class SpawnManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Playerの生成、紐づけ等.
+    /// Playerの生成.
     /// </summary>
     /// <param name="player"></param>
     void SpawnPlayer(PlayerRef player)
@@ -34,20 +37,17 @@ public class SpawnManager : MonoBehaviour
         if (!runner.IsServer)
             return;
 
-        Vector3 pos = Random.insideUnitSphere * 3f;
-        pos.y = 1.5f;
+        Vector3 pos = Vector3.zero;
         // プレイヤーと車を生成（プレイヤーは実体なし）.
-        var playerObj =
-            runner.Spawn(playerPrefab, pos, Quaternion.identity, player);
-        var car = 
-            runner.Spawn(testCarPrefab, pos,  Quaternion.identity, player);
+        var playerObj = runner.Spawn(playerPrefab, pos, Quaternion.identity, player);
+
+        //車両の選択、紐づけのためにプレイヤーを取得.
+       var networkPlayer = playerObj.GetComponent<NetworkPlayer>();
 
         // PlayerObjectを登録.
         runner.SetPlayerObject(player, playerObj);
 
-        // Playerと車を紐づけ.
-        var networkPlayer = playerObj.GetComponent<NetworkPlayer>();
-        networkPlayer.SetVehicle(car);
+        networkPlayer.SpawnVehicle(CurrentMode);
     }
 
     /// <summary>

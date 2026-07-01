@@ -71,20 +71,18 @@ namespace Tanks.Complete
 {
     public class TankVehicle : NetworkBehaviour, IVehicle
     {
+
         TankMove move;
         TankShot shot;
+        InputState currentInput;
 
+        public TankMove Move => move;
         public TankShot Shot => shot;
 
         void Awake()
         {
             move = GetComponent<TankMove>();
             shot = GetComponent<TankShot>();
-        }
-
-        public void SetInput(PlayerInputData data)
-        {
-            move.SetMoveInput(data.Throttle, data.Steering);
         }
 
         public Transform GetTransform()

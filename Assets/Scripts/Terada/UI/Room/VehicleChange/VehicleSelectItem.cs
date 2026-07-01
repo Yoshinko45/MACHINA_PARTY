@@ -1,3 +1,4 @@
+using Tanks.Complete;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,11 +8,11 @@ public class VehicleSelectItem : MonoBehaviour
     [SerializeField] Text nameText;
     [SerializeField] Button button;
 
-    int vehicleID;
+    VehicleType vehicleType;
 
-    public void Setup(int id, VehicleDatabase.VehicleData data)
+    public void Setup(VehicleDatabase.VehicleData data)
     {
-        vehicleID = id;
+        vehicleType = data.type;
 
         iconImage.sprite = data.icon;
         nameText.text = data.vehicleName;
@@ -22,6 +23,6 @@ public class VehicleSelectItem : MonoBehaviour
 
     void OnClick()
     {
-        VehicleSelectUI.Instance.SelectVehicle(vehicleID);
+        VehicleSelectUI.Instance.SelectVehicle(vehicleType);
     }
 }

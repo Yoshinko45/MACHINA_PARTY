@@ -1,6 +1,5 @@
 using UnityEngine;
 using PlayerInputActions;
-using NUnit.Framework.Internal.Filters;
 
 /// <summary>
 /// プレイヤー入力処理.
@@ -11,12 +10,18 @@ public class InputManager : MonoBehaviour
 
     PlayerInput_Actions actions;
 
+    // 車両移動用.
     public Vector2 Move { get; private set; }
-
     public bool Fire { get; private set; }
     public bool Jump { get; private set; }
+
+    // 車両選択オブジェクト用.
     public bool Interact { get; private set; }
     public bool InteractPressed { get; private set; }
+
+    // UIページ切り替え用.
+    public bool PageLeftPressed { get; private set; }
+    public bool PageRightPressed { get; private set; }
 
     void Awake()
     {
@@ -43,11 +48,14 @@ public class InputManager : MonoBehaviour
 
         actions.Player.Fire.performed += ctx => Fire = true;
         actions.Player.Fire.canceled += ctx => Fire = false;
+
+        actions.Player.PageLeft.performed += _ => PageLeftPressed = true;
+
+        actions.Player.PageRight.performed += _ => PageRightPressed = true;
     }
 
     void OnEnable()
     {
-        Debug.Log("Enable called");
         actions.Enable();
     }
 
@@ -62,6 +70,24 @@ public class InputManager : MonoBehaviour
             return false;
 
         InteractPressed = false;
+        return true;
+    }
+
+    public bool ConsumePageLeftPressed()
+    {
+        if (!PageLeftPressed)
+            return false;
+
+        PageLeftPressed = false;
+        return true;
+    }
+
+    public bool ConsumePageRightPressed()
+    {
+        if (!PageRightPressed)
+            return false;
+
+        PageRightPressed = false;
         return true;
     }
 }

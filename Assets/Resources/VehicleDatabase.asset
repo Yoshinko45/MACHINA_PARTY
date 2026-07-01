@@ -13,18 +13,31 @@ MonoBehaviour:
   m_Name: VehicleDatabase
   m_EditorClassIdentifier: Assembly-CSharp::VehicleDatabase
   vehicles:
-  - vehicleName: TankVehicle
+  - gameModes: 0
+    type: 1
+    vehicleName: NomalTank
     icon: {fileID: 21300000, guid: 1bd05219bfe9dcb44992598d5adbb00f, type: 3}
     prefab:
       RawGuidValue: ccf7df6188620d44d9695213b38c0935
-    maxSpeed: 20
-  - vehicleName: testCar2
+    maxSpeed: 12
+  - gameModes: 0
+    type: 2
+    vehicleName: HeavyTank
     icon: {fileID: 21300000, guid: 801c76c41c180d1469ac4a747b3cd9f2, type: 3}
     prefab:
-      RawGuidValue: a1e0647b2910d814098ff8ae5439b500
-    maxSpeed: 20
-  - vehicleName: testCar3
+      RawGuidValue: 5c43dcb58b86981409fb38dff94e36d1
+    maxSpeed: 10
+  - gameModes: 0
+    type: 3
+    vehicleName: AlterTank
     icon: {fileID: 21300000, guid: 56f59400781d1b84a8e44d668e2b1dde, type: 3}
     prefab:
-      RawGuidValue: 8bbe2e190981b7648aefdadc067d67b3
-    maxSpeed: 30
+      RawGuidValue: 4c6f65a3c46317144bb7c33fb09757fc
+    maxSpeed: 15
+  - gameModes: 1
+    type: 4
+    vehicleName: RaceCar
+    icon: {fileID: 21300000, guid: 56f59400781d1b84a8e44d668e2b1dde, type: 3}
+    prefab:
+      RawGuidValue: a44d863e5ff5bfd44a935e0fc5bebb4c
+    maxSpeed: 15
