@@ -105,29 +105,18 @@ namespace Tanks.Complete
         /// </summary>
         public void PassGoal()
         {
-            // 最初の1周目がまだ完了していない場合は、ここでは何もしない
-            // （Z座標が firstLapEnableZ に達するまではゴール通過を無視）
-            if (!hasCompletedFirstLap)
-            {
-                return;
-            }
+            // 最初の1周目がまだ完了していない場合は無視
+            // （Z座標が firstLapEnableZ に達するまではゴール通過を無効にする）
+            if (!hasCompletedFirstLap) return;
 
             // すべてのチェックポイントを通過しているかチェック
-            // currentCheckPoint が 1 になっている = 前のラップですべてのチェックポイントを通過済み
-            if (currentCheckPoint != 1)
-            {
-                // まだすべてのチェックポイントを通過していない
-                return;
-            }
+            // currentCheckPoint が 1 = 全チェックポイント通過済みでリセットされた状態
+            if (currentCheckPoint != 1) return;
 
-            // 現在のラップで既にゴールを通過している場合は無視
-            // （1ラップにつき1回だけカウントするため）
-            if (hasPassedGoalThisLap)
-            {
-                return;
-            }
+            // 同じラップで二重にゴールを通過しないようにガード
+            if (hasPassedGoalThisLap) return;
 
-            // 現在のラップで初めてゴールを通過したことを記録
+            // ゴール通過済みフラグを立てる（二重通過防止）
             hasPassedGoalThisLap = true;
 
             // ラップを進める
@@ -137,10 +126,13 @@ namespace Tanks.Complete
             if (currentLap > maxLaps)
             {
                 currentLap = maxLaps;
-                // ここで「ゴール済み」フラグを立てるなども可能
             }
 
-            // ラップ更新イベントを発行（UI更新などに利用）
+            // 次のラップのためにゴール通過済みフラグをリセット
+            // ※ここが抜けていると2/3→3/3のラップが進まなくなる
+            hasPassedGoalThisLap = false;
+
+            // ラップ更新イベントを発行（UIの更新などに利用）
             OnLapUpdated?.Invoke(currentLap);
         }
 

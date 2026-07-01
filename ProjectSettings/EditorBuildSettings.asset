@@ -6,8 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/_Tanks/Tutorial_Demo/Demo_Scenes/Demo_Game_Moon.unity
-    guid: 7d48af2f9c7c14840abfc5e21827efaa
+    path: Assets/Scenes/Yoshimi/RaceModeScene.unity
+    guid: 3bc3ceaf5ef7c054f8e2e6d6b475f883
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 7fb6c1c790fa04865b379a6e8ccd7e9c, type: 3}
   m_UseUCBPForAssetBundles: 0

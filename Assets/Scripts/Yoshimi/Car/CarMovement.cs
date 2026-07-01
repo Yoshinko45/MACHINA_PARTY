@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Tanks.Complete
@@ -108,6 +109,40 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ パーティクル設定
+        // =====================================================
+
+        [Header("パーティクル設定")]
+
+        [Tooltip("ドリフト中に再生するタイヤの煙・火花パーティクルの親（例：WheelParticles）")]
+        public Transform wheelParticles;
+
+        [Tooltip("ミニターボの段階が上がった瞬間に発生するフラッシュパーティクルの親（例：Particles）")]
+        public Transform flashParticles;
+
+        [Tooltip("ブースト発動時に噴射する排気パーティクル・右側（例：Tube_Right）")]
+        public Transform tubeRight;
+
+        [Tooltip("ブースト発動時に噴射する排気パーティクル・左側（例：Tube_Left）")]
+        public Transform tubeLeft;
+
+        [Tooltip("ミニターボの色。弱→中→強の順で3色を設定")]
+        public Color[] turboColors;
+
+        [Tooltip("ドリフトゲージが溜まる速さ（1秒あたりの増加量）")]
+        public float driftPowerRate = 60f;
+
+        [Tooltip("ミニターボ発動中、最高速度に掛かる倍率（例:1.4なら通常の1.4倍まで出せる）")]
+        public float boostSpeedMultiplier = 1.4f;
+
+        [Tooltip("ミニターボ発動中、Forward Accelに掛かる倍率。上限だけ上げても押す力が同じだと届かないため必須")]
+        public float boostAccelMultiplier = 3f;
+
+        [Tooltip("ミニターボの持続時間。段階1につき何秒ブーストが続くか（段階3なら3倍の時間）")]
+        public float boostDurationPerLevel = 0.4f;
+
+
+        // =====================================================
         // ■ 内部変数
         // =====================================================
 
@@ -124,6 +159,19 @@ namespace Tanks.Complete
 
         // 車体モデルの現在のY軸角度（localEulerAnglesに依存しないよう自前管理）
         private float currentModelAngle;
+
+        // ミニターボ（ドリフトブースト）関連
+        // ※ KartControllerのprimaryParticles/secondaryParticlesと同じく、Startで自動収集されPlay中にInspectorで中身を確認できる
+        [Header("収集されたパーティクル（自動入力・確認用）")]
+        public List<ParticleSystem> wheelParticleList = new List<ParticleSystem>(); // タイヤの煙パーティクル一覧
+        public List<ParticleSystem> flashParticleList = new List<ParticleSystem>(); // 段階アップ時のフラッシュパーティクル一覧
+        public List<ParticleSystem> tubeParticleList = new List<ParticleSystem>();  // ブースト時の排気パーティクル一覧（左右まとめて）
+
+        private float driftPower;   // ドリフトで溜まっているゲージ量
+        private int driftMode;      // 現在のミニターボ段階（0〜3）
+        private bool wasDrifting;   // 前フレームでドリフトしていたか（終了検知用）
+        private float boostTimer;   // ミニターボの残り持続時間
+        private float boostLogTimer; // ブースト中の速度ログを間引くためのタイマー
 
 
         // =====================================================
@@ -147,6 +195,42 @@ namespace Tanks.Complete
                     gameObject.name +
                     " に InputReader がありません"
                 );
+
+            // ドリフトパーティクルを子オブジェクトから収集
+            if (wheelParticles != null)
+                wheelParticles.GetComponentsInChildren<ParticleSystem>(true, wheelParticleList);
+            else
+                Debug.LogWarning(gameObject.name + " : Wheel Particles が未設定です（タイヤの煙が出ません）");
+
+            if (flashParticles != null)
+                flashParticles.GetComponentsInChildren<ParticleSystem>(true, flashParticleList);
+            else
+                Debug.LogWarning(gameObject.name + " : Flash Particles が未設定です（段階アップ時のフラッシュが出ません）");
+
+            // ブースト排気パーティクルを左右まとめて収集
+            if (tubeRight != null)
+                tubeParticleList.AddRange(tubeRight.GetComponentsInChildren<ParticleSystem>(true));
+            else
+                Debug.LogWarning(gameObject.name + " : Tube Right が未設定です");
+
+            if (tubeLeft != null)
+                tubeParticleList.AddRange(tubeLeft.GetComponentsInChildren<ParticleSystem>(true));
+            else
+                Debug.LogWarning(gameObject.name + " : Tube Left が未設定です");
+
+            // 見つかったパーティクルが0個なら、Transformは設定されているが子孫にParticleSystemが無いパターン
+            if (wheelParticles != null && wheelParticleList.Count == 0)
+                Debug.LogWarning(gameObject.name + " : Wheel Particles の子孫にParticleSystemが見つかりませんでした");
+            if (flashParticles != null && flashParticleList.Count == 0)
+                Debug.LogWarning(gameObject.name + " : Flash Particles の子孫にParticleSystemが見つかりませんでした");
+
+            // ミニターボの色が3色揃っているか確認（足りないと段階アップ時に見た目が無色のままになる）
+            if (turboColors == null || turboColors.Length < 3)
+                Debug.LogWarning(gameObject.name + " : Turbo Colors が3色設定されていません（現在" + (turboColors == null ? 0 : turboColors.Length) + "色）。ミニターボの色演出が正しく出ません");
+
+            // 収集結果をまとめて1行で表示（ここが0の項目は、対応するTransformの割り当て or 子孫のParticleSystem有無を確認）
+            Debug.Log(gameObject.name + " : パーティクル収集結果 → Wheel=" + wheelParticleList.Count +
+                "個 / Flash=" + flashParticleList.Count + "個 / Tube=" + tubeParticleList.Count + "個");
         }
 
 
@@ -180,6 +264,9 @@ namespace Tanks.Complete
                     // 開始時のみ方向を決定、以降は変更しない
                     driftDirection = turnInput > 0 ? 1 : -1;
                     drifting = true;
+
+                    // ドリフト開始 → タイヤの煙パーティクルを再生
+                    StartDriftParticles();
                 }
                 // ドリフト中は方向を更新しない（開始時の方向を維持）
             }
@@ -188,6 +275,21 @@ namespace Tanks.Complete
                 // Shiftを離すか、前進していない → ドリフト終了
                 drifting = false;
             }
+
+            // ── ミニターボ（ドリフトゲージ）処理 ────────────────
+            if (drifting)
+            {
+                // ドリフトを続けている間、ゲージを溜めてパーティクルの色を更新
+                driftPower += driftPowerRate * Time.deltaTime;
+                UpdateDriftParticles();
+            }
+
+            // ドリフトが終了した瞬間（前フレームはtrue→今フレームはfalse）にブースト
+            if (wasDrifting && !drifting)
+            {
+                EndDrift();
+            }
+            wasDrifting = drifting;
 
             // ── 車体モデルの演出（傾き・向きのズレ） ───────────
             if (kartModel != null)
@@ -217,6 +319,95 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ パーティクル・ミニターボ処理
+        // =====================================================
+
+        // ドリフト開始時：タイヤの煙パーティクルを再生（最初は無色）
+        void StartDriftParticles()
+        {
+            foreach (ParticleSystem p in wheelParticleList)
+            {
+                var main = p.main;
+                main.startColor = Color.clear;
+                p.Play();
+            }
+        }
+
+        // ドリフト中：ゲージ量からミニターボの段階を判定し、パーティクルの色を更新
+        void UpdateDriftParticles()
+        {
+            int previousMode = driftMode;
+
+            // ゲージが閾値を超えるたびに段階を1つずつ上げる
+            if (driftPower > 150f) driftMode = 3;
+            else if (driftPower > 100f) driftMode = 2;
+            else if (driftPower > 50f) driftMode = 1;
+
+            // turboColorsが3色揃っていなくても落ちないようにガード（この場合は無色のまま）
+            Color c = Color.clear;
+            if (driftMode > 0 && turboColors != null && turboColors.Length >= driftMode)
+                c = turboColors[driftMode - 1];
+
+            // 段階が上がった瞬間だけフラッシュパーティクルを再生
+            if (driftMode != previousMode && driftMode > 0)
+            {
+                Debug.Log(gameObject.name + " : 段階" + driftMode + "に到達 → 色(RGBA)=" + c + " / Wheel再生対象=" + wheelParticleList.Count + "個 / Flash再生対象=" + flashParticleList.Count + "個");
+                PlayFlashParticles(c);
+            }
+
+            foreach (ParticleSystem p in wheelParticleList)
+            {
+                var main = p.main;
+                main.startColor = c;
+            }
+        }
+
+        // 段階が上がった瞬間に発生するフラッシュパーティクルを再生
+        void PlayFlashParticles(Color c)
+        {
+            foreach (ParticleSystem p in flashParticleList)
+            {
+                var main = p.main;
+                main.startColor = c;
+                p.Play();
+            }
+        }
+
+        // ドリフト終了時：溜めた段階に応じてミニターボ（一定時間の速度上限アップ）を開始し、ゲージ関連をリセット
+        void EndDrift()
+        {
+            // ミニターボが1段階以上溜まっていたら、一定時間だけ最高速度を引き上げる
+            // （瞬間的に速度を足すと"テレポート"のように見えるため、FixedUpdate側で毎フレーム自然に加速させる方式）
+            if (driftMode > 0)
+            {
+                boostTimer = boostDurationPerLevel * driftMode;
+                Debug.Log(gameObject.name + " : ミニターボ発動！ 段階=" + driftMode + " / 持続時間=" + boostTimer +
+                    "秒 / 速度上限=" + (maxSpeed * boostSpeedMultiplier) + "m/s / Tube再生数=" + tubeParticleList.Count);
+
+                // ブーストの瞬間だけTubeの排気パーティクルを噴射
+                foreach (ParticleSystem p in tubeParticleList)
+                    p.Play();
+            }
+            else
+            {
+                // ここが出る場合はブーストではなく「ドリフトが短すぎて段階0のまま終わった」状態
+                Debug.Log(gameObject.name + " : ドリフト終了（段階0のためブースト無し。driftPowerRateに対してドリフト時間が短すぎる可能性）");
+            }
+
+            driftPower = 0f;
+            driftMode = 0;
+
+            // タイヤの煙パーティクルを停止
+            foreach (ParticleSystem p in wheelParticleList)
+            {
+                var main = p.main;
+                main.startColor = Color.clear;
+                p.Stop();
+            }
+        }
+
+
+        // =====================================================
         // ■ 物理演算
         // =====================================================
 
@@ -229,11 +420,29 @@ namespace Tanks.Complete
             rb.linearVelocity = vel;
 
             // ── 前進・後退（加速） ──────────────────────────
-            // 現在の速度が上限未満なら加速
-            if (rb.linearVelocity.magnitude < maxSpeed * currentSpeedMultiplier)
+            // 現在の速度が上限未満なら加速（ミニターボ中は上限と加速力の両方を一時的に引き上げる）
+            float speedCap = maxSpeed * currentSpeedMultiplier;
+            float accelMultiplier = 1f;
+            if (boostTimer > 0f)
             {
-                // 前進か後退かで加速度を切り替え
-                float accel = moveInput > 0 ? forwardAccel : reverseAccel;
+                speedCap *= boostSpeedMultiplier;
+                accelMultiplier = boostAccelMultiplier;
+                boostTimer = Mathf.Max(0f, boostTimer - Time.fixedDeltaTime);
+
+                // 実際に速度が伸びているか確認用のログ（0.2秒間隔に間引き）
+                boostLogTimer -= Time.fixedDeltaTime;
+                if (boostLogTimer <= 0f)
+                {
+                    boostLogTimer = 0.2f;
+                    Debug.Log(gameObject.name + " : [ブースト中] 現在速度=" + rb.linearVelocity.magnitude.ToString("F1") +
+                        "m/s / 上限=" + speedCap.ToString("F1") + "m/s / 残り時間=" + boostTimer.ToString("F2") + "秒");
+                }
+            }
+
+            if (rb.linearVelocity.magnitude < speedCap)
+            {
+                // 前進か後退かで加速度を切り替え（ブースト中はさらにaccelMultiplierを掛ける）
+                float accel = (moveInput > 0 ? forwardAccel : reverseAccel) * accelMultiplier;
 
                 // 進行方向に力を加える（ForceMode.Accelerationなので質量無視）
                 rb.AddForce(
