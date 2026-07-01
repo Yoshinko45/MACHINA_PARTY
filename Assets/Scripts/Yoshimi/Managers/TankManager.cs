@@ -256,11 +256,13 @@ namespace Tanks.Complete
             // タンクカラー変更
             // =================================================
 
+            #if UNITY_EDITOR
             Debug.Log(
                 m_Instance.name +
                 "  IsPersistent = " +
                 UnityEditor.EditorUtility.IsPersistent(m_Instance)
             );
+            #endif
 
             // TankColorという名前を含むマテリアルだけを
             // プレイヤーカラーに変更する。
