@@ -10,8 +10,11 @@ public class WheelAnimation : MonoBehaviour
     [Tooltip("前輪ならON（ハンドル操作が有効になる）")]
     public bool isFrontWheel = false;
 
-    [Tooltip("ホイールの回転速度（大きいほど速く回る）")]
-    public float rotationSpeed = 30f; // 元は300。通常速度で秒間数十回転になっていたため、まずは1/10の目安に変更
+    [Tooltip("ホイールの半径（m）。実際のタイヤメッシュの半径に近づけるほど、転がる動きが車の実速度と正確に一致する")]
+    public float wheelRadius = 0.3f;
+
+    [Tooltip("回転速度の演出用倍率（1 = 物理的に正確な速度で回転。見た目を誇張したい時だけ1より大きく/小さくする）")]
+    public float rotationMultiplier = 1f;
 
     [Tooltip("ハンドルの最大切れ角（度）")]
     public float steerAngle = 30f;
@@ -88,14 +91,22 @@ public class WheelAnimation : MonoBehaviour
         if (carRigidbody == null) return;
 
         // ── 前進速度を取得 ──────────────────────────
-        // 車の前方向への速度成分のみ抽出
+        // 車の前方向への速度成分のみ抽出（後退中は負の値になり、逆回転として扱われる）
         float speed = Vector3.Dot(
             carRigidbody.linearVelocity,
             carRigidbody.transform.forward
         );
 
         // ── ホイール回転（Z軸）──────────────────────
-        wheelRotation += speed * rotationSpeed * Time.deltaTime;
+        // タイヤ半径から円周を求め、「地面を転がる」実際の回転速度(度/秒)に変換する。
+        // 円周 = 2πr。この円周分だけ進むとタイヤはちょうど1回転(360度)する。
+        // speedはcarRigidbodyの実速度そのものなので、通常走行はもちろん、
+        // ミニターボ（ブースト）でRigidbodyの速度が上がった瞬間も、この計算式が
+        // そのまま追従して回転を速くする。ブースト用の分岐は不要。
+        float circumference = 2f * Mathf.PI * Mathf.Max(wheelRadius, 0.01f); // 0除算防止
+        float degreesPerSecond = (speed / circumference) * 360f * rotationMultiplier;
+
+        wheelRotation += degreesPerSecond * Time.deltaTime;
 
         // 角度を-360〜360に正規化してfloatの肥大化を防ぐ
         wheelRotation = Mathf.Repeat(wheelRotation, 360f);

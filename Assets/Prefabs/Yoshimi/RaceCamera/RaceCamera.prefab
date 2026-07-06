@@ -99,12 +99,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.RaceCameraFollow
   m_Target: {fileID: 0}
-  m_Offset: {x: 0, y: 5, z: -6}
+  m_Offset: {x: 0, y: 6, z: -6}
   m_LookAtHeight: 1
   m_PositionDamping: 6
   m_RotationDamping: 3
   m_FollowTargetYaw: 1
   m_YawFollowSpeed: 2.5
+  m_DriftStageShakeMagnitudes:
+  - 0.15
+  - 0.3
+  - 0.5
+  m_DriftStageShakeDuration: 0.15
 --- !u!114 &8035229915279817075
 MonoBehaviour:
   m_ObjectHideFlags: 0
