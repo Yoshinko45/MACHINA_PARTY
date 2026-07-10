@@ -1141,7 +1141,10 @@ namespace Fusion {
 #if FUSION_TRACE_SCENEINFO
       traceChannels |= TraceChannels.SceneInfo;
 #endif
-#if FUSION_TRACE_SCENEMANAGER
+#if FUSION_TRACE_
+
+
+
       traceChannels |= TraceChannels.SceneManager;
 #endif
 #if FUSION_TRACE_SIMULATIONMESSAGE

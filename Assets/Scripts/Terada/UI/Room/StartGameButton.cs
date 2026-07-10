@@ -3,17 +3,21 @@ using UnityEngine;
 
 public class StartGameButton : MonoBehaviour
 {
-    NetworkRunner runner;
-
     void Start()
     {
-        runner = FindAnyObjectByType<NetworkRunner>();
+        gameObject.SetActive(NetworkManager.Instance.Runner.IsServer);
     }
 
     public void StartGame()
     {
-        if (!runner.IsServer) return;
+        var room = RoomManager.Instance;
 
-        runner.LoadScene(("GameScene_T"));
+        if (room == null)
+            return;
+
+        if (!room.AllReady())
+            return;
+
+        room.BeginVote();
     }
 }

@@ -1,9 +1,11 @@
-﻿using UnityEngine;
+﻿using Fusion;
+using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerListItem : MonoBehaviour
 {
     [SerializeField] Text nameText;
+    [SerializeField] Text winsText;
 
     [SerializeField] Image readyIcon;
     [SerializeField] Sprite readySprite;
@@ -11,18 +13,29 @@ public class PlayerListItem : MonoBehaviour
 
     NetworkPlayer player;
 
-    public void Set(NetworkPlayer p)
+    public void SetPlaceholder(PlayerRef player)
     {
-        player = p;
+        nameText.text = $"Player {player.PlayerId}";
+        readyIcon.sprite = notReadySprite;
     }
 
-    void Update()
+    public void Bind(NetworkPlayer p)
     {
-        if (player == null) return;
+        if (p == null)
+            return;
+
+        player = p;
+        UpdateView();
+    }
+
+    public void UpdateView()
+    {
+        if (player == null)
+            return;
 
         nameText.text = player.PlayerName.ToString();
-
-        // 全員共通のReadyアイコン
+        winsText.text = player.Wins.ToString();
         readyIcon.sprite = player.IsReady ? readySprite : notReadySprite;
     }
+
 }

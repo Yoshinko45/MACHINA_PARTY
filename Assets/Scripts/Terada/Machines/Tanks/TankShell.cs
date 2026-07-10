@@ -52,8 +52,8 @@ namespace Tanks.Complete
             for (int i = 0; i < colliders.Length; i++)
             {
                 // TankMovementŽæ“¾
-                TankMove tankMovement =
-                    colliders[i].GetComponent<TankMove>();
+                Tank_Move tankMovement =
+                    colliders[i].GetComponent<Tank_Move>();
 
                 if (!tankMovement)
                     continue;
@@ -66,8 +66,8 @@ namespace Tanks.Complete
                 //);
 
                 // TankHealthŽæ“¾
-                TankHealth targetHealth =
-                    colliders[i].GetComponent<TankHealth>();
+                Tank_Health targetHealth =
+                    colliders[i].GetComponent<Tank_Health>();
 
                 if (!targetHealth)
                     continue;

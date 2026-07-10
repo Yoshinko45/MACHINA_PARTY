@@ -10,6 +10,9 @@ public class ReadyButton : MonoBehaviour
         var player = NetworkPlayer.LocalPlayer;
         if (player == null) return;
 
+        if (!player.Object || !player.Object.IsValid)
+            return;
+
         readyText.text = player.IsReady ? "Ready!!" : "Ready??";
     }
 

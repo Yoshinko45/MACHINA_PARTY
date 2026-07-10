@@ -24,6 +24,10 @@ namespace Tanks.Complete
         [Networked]
         TickTimer InvincibleTimer { get; set; }
 
+        [SerializeField] ParticleSystem deathEffect;
+
+        public bool IsDead => Dead;
+
         public float MaxHealth => startingHealth;
 
         public override void Spawned()
@@ -69,7 +73,24 @@ namespace Tanks.Complete
             if (Health <= 0)
             {
                 Dead = true;
-                Runner.Despawn(Object);
+                DamageEnabled = false;
+
+                Instantiate(
+                    deathEffect,
+                    transform.position,
+                    Quaternion.identity);
+
+                MeshRenderer[] renderers =
+                    GetComponentsInChildren<MeshRenderer>();
+
+                foreach (var r in renderers)
+                    r.enabled = false;
+
+                foreach (var c in GetComponentsInChildren<Collider>())
+                    c.enabled = false;
+
+                Runner.SetIsSimulated(Object, false);
+
                 return;
             }
 
@@ -97,6 +118,32 @@ namespace Tanks.Complete
                 return;
 
             HasShield = enable;
+        }
+
+        public void ResetTank()
+        {
+            if (!HasStateAuthority)
+                return;
+
+            Health = startingHealth;
+
+            Dead = false;
+
+            HasShield = false;
+
+            Invincible = false;
+
+            DamageEnabled = true;
+
+            InvincibleTimer = TickTimer.None;
+
+            foreach (var r in GetComponentsInChildren<MeshRenderer>())
+                r.enabled = true;
+
+            foreach (var c in GetComponentsInChildren<Collider>())
+                c.enabled = true;
+
+            Runner.SetIsSimulated(Object, true);
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using static Unity.Collections.Unicode;
 
 public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 {
@@ -186,6 +187,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
                             IsOpen = true,
                             Scene = SceneRef.FromIndex(1)
                         };
+                        args.SceneManager = Runner.GetComponent<NetworkSceneManagerDefault>();
 
                         break;
 
@@ -453,6 +455,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         NetworkRunner runner,
         PlayerRef player)
     {
+        Debug.Log($"OnPlayerLeft {player}");
         OnPlayerLeftEvent?.Invoke(player);
     }
 
@@ -516,6 +519,14 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             data.Throttle = InputManager.Instance.Move.y;
             data.Steering = InputManager.Instance.Move.x;
 
+            Camera mainCamera = Camera.main;
+
+            if (mainCamera != null)
+            {
+                data.CameraForward = mainCamera.transform.forward;
+                data.CameraRight = mainCamera.transform.right;
+            }
+
             data.Buttons.Set(
                 NetworkInputButtons.Jump,
                 InputManager.Instance.Jump);
@@ -559,9 +570,71 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     void INetworkRunnerCallbacks.OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
 
-    void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner) { }
+    void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner)
+    {
+        Debug.Log("NetworkObjects");
 
-    void INetworkRunnerCallbacks.OnSceneLoadStart(NetworkRunner runner) { }
+        foreach (var obj in runner.GetAllNetworkObjects())
+        {
+            Debug.Log($"{obj.Id} {obj.name}");
+        }
+
+        Debug.Log("=== SceneLoadDone ===");
+
+        if (!runner.IsServer) return;
+
+        foreach (var player in runner.ActivePlayers)
+        {
+            Debug.Log($"Player {player}");
+
+            Debug.Log(runner.TryGetPlayerObject(player, out var obj));
+
+            if (obj != null)
+            {
+                Debug.Log(obj);
+                Debug.Log(obj.IsValid);
+                Debug.Log(obj.gameObject.scene.name);
+            }
+
+            //if (!runner.TryGetPlayerObject(player, out var obj))
+            //    continue;
+
+            var netPlayer = obj.GetComponent<NetworkPlayer>();
+
+            netPlayer.SpawnVehicle(RoomState.Instance.CurrentMode);
+        }
+
+        Debug.Log("=== Dynamic Objects ===");
+
+        foreach (var obj in runner.GetAllNetworkObjects())
+        {
+            Debug.Log(
+                $"{obj.Id} {obj.name} " +
+                $"Scene={obj.gameObject.scene.name} " +
+                $"Valid={obj.IsValid}");
+        }
+    }
+
+    void INetworkRunnerCallbacks.OnSceneLoadStart(NetworkRunner runner) 
+    {
+        Debug.Log("=== OnSceneLoadStart ===");
+
+        foreach (var player in runner.ActivePlayers)
+        {
+            Debug.Log(
+                runner.TryGetPlayerObject(player, out _));
+        }
+
+        Debug.Log("=== Dynamic Objects ===");
+
+        foreach (var obj in runner.GetAllNetworkObjects())
+        {
+            Debug.Log(
+                $"{obj.Id} {obj.name} " +
+                $"Scene={obj.gameObject.scene.name} " +
+                $"Valid={obj.IsValid}");
+        }
+    }
 
     void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 
