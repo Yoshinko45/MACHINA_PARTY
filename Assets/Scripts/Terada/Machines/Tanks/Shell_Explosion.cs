@@ -88,8 +88,8 @@ namespace Tanks.Complete
                         m_ExplosionRadius);
                 }
 
-                TankHealth health =
-                    col.GetComponent<TankHealth>();
+                Tank_Health health =
+                    col.GetComponent<Tank_Health>();
 
                 if (health != null)
                 {

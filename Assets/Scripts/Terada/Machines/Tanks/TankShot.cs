@@ -48,8 +48,8 @@ namespace Tanks.Complete
         {
             marker.Initialize(this);
             bool local = Object.HasInputAuthority;
-            chargeSlider.gameObject.SetActive(true);
-            marker.gameObject.SetActive(true);
+            chargeSlider.gameObject.SetActive(local);
+            marker.gameObject.SetActive(local);
 
             CurrentCharge = minLaunchForce;
         }
@@ -175,6 +175,9 @@ namespace Tanks.Complete
 
         public Vector3 GetProjectilePosition()
         {
+            if (!Object || !Object.IsValid)
+                return fireTransform.position;
+
             float force = CurrentCharge;
 
             Vector3 velocity =

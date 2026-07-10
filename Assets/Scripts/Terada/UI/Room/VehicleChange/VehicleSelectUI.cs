@@ -7,7 +7,7 @@ public class VehicleSelectUI : MonoBehaviour
 
     [SerializeField] GameObject panel;
     [SerializeField] VehicleSelectItem itemPrefab;
-    [SerializeField]Transform[] pages; 
+    [SerializeField] Transform[] pages; 
 
     int currentPage = 0;
 
@@ -98,7 +98,7 @@ public class VehicleSelectUI : MonoBehaviour
             return;
 
         player.RPC_ChangeVehicle(
-            GameSettings.Instance.CurrentMode,
+            RoomState.Instance.CurrentMode,
             type
         );
 

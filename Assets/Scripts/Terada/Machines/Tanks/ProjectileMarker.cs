@@ -15,11 +15,8 @@ namespace Tanks.Complete
         {
             if (currentShot == null) return;
 
-            if (!currentShot.IsCharging)
-            {
-                gameObject.SetActive(false);
+            if (!currentShot.Object || !currentShot.Object.IsValid)
                 return;
-            }
 
             transform.position = currentShot.GetProjectilePosition();
         }

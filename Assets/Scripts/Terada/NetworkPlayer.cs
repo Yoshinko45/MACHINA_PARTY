@@ -7,16 +7,22 @@ public class NetworkPlayer : NetworkBehaviour
 {
     // プレイヤー名.
     [Networked] public NetworkString<_16> PlayerName { get; set; }
-    // Room内でのプレイヤーごとの状態（全員Readyでゲームスタートできる）.
-    [Networked] public bool IsReady { get; set; }
 
-    [Networked, OnChangedRender(nameof(OnVehicleChanged))]
+    // Room内でのプレイヤーごとの状態（全員Readyでゲームスタートできる）.
+    [Networked, OnChangedRender(nameof(OnReadyChanged))]
+    public bool IsReady { get; set; }
+
     public NetworkObject VehicleObject { get; set; }
 
     [Networked] public VehicleType TankVehicleType { get; set; }
     [Networked] public VehicleType RaceVehicleType { get; set; }
 
+    [Networked] public bool HasVoted { get; set; }
+    [Networked] public GameModes Vote { get; set; }
+
     [SerializeField] float interactDistance = 5f;
+
+    [Networked] public int Wins { get; set; }
 
     // ローカルのプレイヤー取得用.
     public static NetworkPlayer LocalPlayer;
@@ -37,6 +43,9 @@ public class NetworkPlayer : NetworkBehaviour
         {
             RPC_SetName("Host_" + Random.Range(10, 99));
 
+            HasVoted = false;
+            IsReady = false;
+
             // ルームに入ったらデフォルトで最初の車両を登録.
             TankVehicleType = VehicleType.NormalTank;
             RaceVehicleType = VehicleType.RaceCar;
@@ -52,9 +61,12 @@ public class NetworkPlayer : NetworkBehaviour
             }
 
             RPC_SetName("Player_" + Random.Range(100, 999));
+
+            PlayerListManager.Instance?.Refresh();
         }
 
-        PlayerListManager.Instance?.Refresh();
+        UpdateCameraTarget();
+
     }
 
     // ネットワーク更新ごとの処理.
@@ -101,6 +113,11 @@ public class NetworkPlayer : NetworkBehaviour
         }
     }
 
+    void OnReadyChanged()
+    {
+        PlayerListManager.Instance?.Refresh();
+    }
+
     void TryInteract()
     {
         if (VehicleObject == null)
@@ -131,18 +148,20 @@ public class NetworkPlayer : NetworkBehaviour
         }
     }
 
+    public VehicleType GetVehicle(GameModes mode)
+    {
+        return mode == GameModes.Tank
+            ? TankVehicleType
+            : RaceVehicleType;
+    }
+
     public void SpawnVehicle(GameModes mode)
     {
-        Debug.Log($"GameSettings null? {GameSettings.Instance == null}");
-        Debug.Log($"VehicleDB null? {VehicleDatabase.Instance == null}");
-        Debug.Log($"Mode = {GameSettings.Instance?.CurrentMode}");
+        Debug.Log($"Mode = {mode}");
         if (!Object.HasStateAuthority)
             return;
 
-        var type =
-            mode == GameModes.Tank
-            ? TankVehicleType
-            : RaceVehicleType;
+        var type = GetVehicle(mode);
 
         var prefab =
             VehicleDatabase.Instance.GetPrefab(type);
@@ -157,24 +176,19 @@ public class NetworkPlayer : NetworkBehaviour
 
     void OnVehicleChanged()
     {
-        if (!Object.HasInputAuthority)
-            return;
+        UpdateCameraTarget();
 
-        if (VehicleObject == null)
-            return;
+        if (VehicleObject != null)
+        {
+            var tankVehicle = VehicleObject.GetComponent<Tank_Vehicle>();
 
-        var tankVehicle = VehicleObject.GetComponent<TankVehicle>();
-        if (tankVehicle == null)
-            return;
+            if (tankVehicle != null)
+                TankAimUI.Instance?.SetVehicleShot(tankVehicle);
 
-        if (cam == null)
-            cam = Camera.main?.GetComponent<CameraFollow>();
+            //cam.SetTarget(tankVehicle.Move.transform);
 
-        if (cam == null)
-            return;
+        }
 
-        cam.SetTarget(tankVehicle.Move.VisualRoot);
-        TankAimUI.Instance?.SetVehicleShot(tankVehicle);
     }
 
     // ゲームモードに合わせて車両を変更.
@@ -193,10 +207,7 @@ public class NetworkPlayer : NetworkBehaviour
             Runner.Despawn(VehicleObject);
         }
 
-        VehicleType type =
-            gameMode == GameModes.Tank
-            ? TankVehicleType
-            : RaceVehicleType;
+        VehicleType type = GetVehicle(gameMode);
 
         var prefab =
             VehicleDatabase.Instance.GetPrefab(type);
@@ -213,6 +224,20 @@ public class NetworkPlayer : NetworkBehaviour
         VehicleObject = vehicle;
     }
 
+    void UpdateCameraTarget()
+    {
+        if (!Object.HasInputAuthority) return;
+
+        if (VehicleObject == null) return;
+
+        if (cam == null)
+            cam = Camera.main?.GetComponent<CameraFollow>();
+
+        if (cam == null) return;
+
+        cam.SetTarget(VehicleObject.transform);
+    }
+
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
     public void RPC_SetName(string name)
     {
@@ -223,6 +248,13 @@ public class NetworkPlayer : NetworkBehaviour
     public void RPC_Ready(bool ready)
     {
         IsReady = ready;
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_Vote(GameModes mode)
+    {
+        Vote = mode;
+        HasVoted = true;
     }
 
     /// <summary>

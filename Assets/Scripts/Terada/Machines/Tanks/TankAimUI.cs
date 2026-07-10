@@ -22,7 +22,7 @@ namespace Tanks.Complete
            Instance = this;
         }
 
-        public void SetVehicleShot(TankVehicle vehicle)
+        public void SetVehicleShot(Tank_Vehicle vehicle)
         {
             currentShot = vehicle != null ? vehicle.Shot : null;
 

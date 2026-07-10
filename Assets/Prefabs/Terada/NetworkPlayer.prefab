@@ -82,10 +82,12 @@ MonoBehaviour:
     _data:
       Data: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
   _IsReady: 0
-  _VehicleObject: {fileID: 3832375398492558207, guid: ccf7df6188620d44d9695213b38c0935, type: 3}
   _TankVehicleType: 0
   _RaceVehicleType: 0
+  _HasVoted: 0
+  _Vote: 0
   interactDistance: 5
+  _Wins: 0
 --- !u!114 &-8585353111235253074
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -100,7 +102,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
   SortKey: 4145739301
   ObjectInterest: 1
-  Flags: 524289
+  Flags: 262145
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 5476154788561680314}

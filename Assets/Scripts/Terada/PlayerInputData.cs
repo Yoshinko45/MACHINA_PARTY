@@ -7,6 +7,8 @@ public struct PlayerInputData : INetworkInput
     public float Throttle;  // ëOå„.
     public float Steering;  // ç∂âE.
     public Vector2 Move;
+    public Vector3 CameraForward;
+    public Vector3 CameraRight;
     public NetworkButtons Buttons;
 }
 
