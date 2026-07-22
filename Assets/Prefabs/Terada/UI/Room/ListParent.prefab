@@ -170,41 +170,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: PlayerList
       objectReference: {fileID: 0}
-    - target: {fileID: 5337884428686092039, guid: 0b92c69487d374348b906624305b4a3c, type: 3}
-      propertyPath: nameText
-      value: 
-      objectReference: {fileID: 1865217468776310455}
-    - target: {fileID: 5337884428686092039, guid: 0b92c69487d374348b906624305b4a3c, type: 3}
-      propertyPath: readyText
-      value: 
-      objectReference: {fileID: 7237388081996552661}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0b92c69487d374348b906624305b4a3c, type: 3}
---- !u!114 &1865217468776310455 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4850830171724622617, guid: 0b92c69487d374348b906624305b4a3c, type: 3}
-  m_PrefabInstance: {fileID: 6535577589969800622}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
---- !u!114 &7237388081996552661 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 4522554303426827387, guid: 0b92c69487d374348b906624305b4a3c, type: 3}
-  m_PrefabInstance: {fileID: 6535577589969800622}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
 --- !u!224 &7902734402271017468 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3971944117473653842, guid: 0b92c69487d374348b906624305b4a3c, type: 3}

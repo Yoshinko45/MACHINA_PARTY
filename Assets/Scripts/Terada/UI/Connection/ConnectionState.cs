@@ -2,9 +2,10 @@ public enum ConnectionState
 {
     None,
     ConnectingLobby,
-    InLobby,
     ConnectingRoom,
+    InLobby,
     InRoom,
+    Disconnecting,
     Disconnected,
     Reconnecting,
     Failed

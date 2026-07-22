@@ -188,6 +188,54 @@ namespace Tanks.Complete
 
 
             // =================================================
+            // カプセル下端の地面めり込み補正
+            // =================================================
+            //
+            // CharacterControllerのカプセルは、実際の高さが
+            // 「最低でも半径×2」に内部で拡張される。
+            // （例：Height=2でもRadius=1.5なら実質高さ3のカプセル）
+            //
+            // そのためCenter.Yが「半径」や「高さの半分」より小さいと、
+            // カプセル下端がタンクの原点（＝地面）より下へ突き抜ける。
+            // このゲームはFixPosition()で毎フレームY=0に固定するので
+            // めり込みが解消されず、Move()が毎フレーム地面と衝突して
+            // 移動距離のほとんどが食われてしまう（＝異常に遅くなる）。
+            //
+            // HeavyTank（Radius=1.5, Center.Y=1 → 下端-0.5）が
+            // まさにこの状態だったため、下端がちょうど0（接地）に
+            // なるようCenterを自動補正する。
+            //
+            // =================================================
+
+            float capsuleHalfExtent =
+                Mathf.Max(
+                    m_CharacterController.radius,
+                    m_CharacterController.height * 0.5f
+                );
+
+            Vector3 capsuleCenter =
+                m_CharacterController.center;
+
+            if (capsuleCenter.y < capsuleHalfExtent)
+            {
+                Debug.LogWarning(
+                    gameObject.name +
+                    " : CharacterControllerのカプセル下端が原点より " +
+                    (capsuleHalfExtent - capsuleCenter.y) +
+                    " 下に突き抜けていたため、Center.Y を " +
+                    capsuleCenter.y + " → " + capsuleHalfExtent +
+                    " に自動補正しました。" +
+                    "Prefab側のCenter/Radius/Heightを修正すると" +
+                    "この警告は出なくなります。"
+                );
+
+                capsuleCenter.y = capsuleHalfExtent;
+
+                m_CharacterController.center = capsuleCenter;
+            }
+
+
+            // =================================================
             // InputReader取得
             // =================================================
 
@@ -415,7 +463,7 @@ namespace Tanks.Complete
         // =====================================================
 
         private void Move()
-        {   
+        {
             // 実際に進む方向
             Vector3 moveDirection;
 
@@ -539,7 +587,7 @@ namespace Tanks.Complete
         }
 
         private void Turn()
-        { 
+        {
             // =================================================
             // カメラ方向移動中は不要
             // =================================================

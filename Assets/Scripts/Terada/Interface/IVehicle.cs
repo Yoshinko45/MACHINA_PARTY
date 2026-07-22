@@ -7,6 +7,6 @@ using UnityEngine;
 public interface IVehicle
 {
     // “ü—Í‚ð“n‚µ‚ÄTransform‚ðŽæ“¾.
-    void SetInput(PlayerInputData data);
+    //void SetInput(PlayerInputData data);
     Transform GetTransform();
 }

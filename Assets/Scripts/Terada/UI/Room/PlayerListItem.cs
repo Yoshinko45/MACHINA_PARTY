@@ -1,23 +1,41 @@
+﻿using Fusion;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class PlayerListItem : MonoBehaviour
 {
     [SerializeField] Text nameText;
-    [SerializeField] Text readyText;
+    [SerializeField] Text winsText;
+
+    [SerializeField] Image readyIcon;
+    [SerializeField] Sprite readySprite;
+    [SerializeField] Sprite notReadySprite;
 
     NetworkPlayer player;
 
-    public void Set(NetworkPlayer p)
+    public void SetPlaceholder(PlayerRef player)
     {
-        player = p;
+        nameText.text = $"Player {player.PlayerId}";
+        readyIcon.sprite = notReadySprite;
     }
 
-    void Update()
+    public void Bind(NetworkPlayer p)
     {
-        if (player == null) return;
+        if (p == null)
+            return;
+
+        player = p;
+        UpdateView();
+    }
+
+    public void UpdateView()
+    {
+        if (player == null)
+            return;
 
         nameText.text = player.PlayerName.ToString();
-        readyText.text = player.IsReady ? "Ready!!" : "Ready??";
+        winsText.text = player.Wins.ToString();
+        readyIcon.sprite = player.IsReady ? readySprite : notReadySprite;
     }
+
 }

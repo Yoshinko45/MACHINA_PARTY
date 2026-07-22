@@ -83,6 +83,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.TankMovement
   m_PlayerNumber: 3
+  m_MovementProfile: 0
   m_Speed: 10
   m_TurnSpeed: 180
   m_IsDirectControl: 0

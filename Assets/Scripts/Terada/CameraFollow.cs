@@ -19,11 +19,9 @@ public class CameraFollow : MonoBehaviour
         if (target == null) return;
 
         // Ô‚ÌŒü‚«‚É‡‚í‚¹‚ÄƒJƒƒ‰‚à‰ñ‚·.
-        Vector3 desiredPos = target.position + target.rotation * offset;
-
-        // ’Ç]ˆ—iSmooth‚ÅŠŠ‚ç‚©‚³‚ğ’²®j.
         transform.position =
-            Vector3.Lerp(transform.position, desiredPos, smooth * Time.deltaTime);
+            target.position +
+            target.rotation * offset;
 
         transform.LookAt(target);
     }

@@ -1,10 +1,30 @@
 using Fusion;
+using Tanks.Complete;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using static Unity.Collections.Unicode;
 
 public class SpawnManager : MonoBehaviour
 {
+    public static SpawnManager Instance;
+
+    public GameModes CurrentMode { get; set; }
+
     [SerializeField] NetworkPrefabRef playerPrefab;
-    [SerializeField] NetworkPrefabRef testCarPrefab;
+    [SerializeField] NetworkPrefabRef roomStatePrefab;
+
+    void Awake()
+    {
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+
+        DontDestroyOnLoad(gameObject);
+    }
 
     void Start()
     {
@@ -23,7 +43,7 @@ public class SpawnManager : MonoBehaviour
     }
     
     /// <summary>
-    /// Playerの生成、紐づけ等.
+    /// Playerの生成.
     /// </summary>
     /// <param name="player"></param>
     void SpawnPlayer(PlayerRef player)
@@ -34,20 +54,34 @@ public class SpawnManager : MonoBehaviour
         if (!runner.IsServer)
             return;
 
-        Vector3 pos = Random.insideUnitSphere * 3f;
-        pos.y = 1.5f;
+        if (RoomState.Instance == null)
+        {
+            runner.Spawn(roomStatePrefab, Vector3.zero, Quaternion.identity);
+        }
+
+        Vector3 pos = Vector3.zero;
         // プレイヤーと車を生成（プレイヤーは実体なし）.
-        var playerObj =
-            runner.Spawn(playerPrefab, pos, Quaternion.identity, player);
-        var car = 
-            runner.Spawn(testCarPrefab, pos,  Quaternion.identity, player);
+        var playerObj = runner.Spawn(playerPrefab, pos, Quaternion.identity, player);
+
+        //車両の選択、紐づけのためにプレイヤーを取得.
+       var networkPlayer = playerObj.GetComponent<NetworkPlayer>();
 
         // PlayerObjectを登録.
         runner.SetPlayerObject(player, playerObj);
 
-        // Playerと車を紐づけ.
-        var networkPlayer = playerObj.GetComponent<NetworkPlayer>();
-        networkPlayer.SetVehicle(car);
+        networkPlayer.SpawnVehicle(CurrentMode);
+
+        Debug.Log("== SpawnPlayer ==");
+        Debug.Log($"Flags = {playerObj.Flags}");
+        Debug.Log($"Valid = {playerObj.IsValid}");
+        Debug.Log($"Id = {playerObj.Id}");
+        Debug.Log($"Scene = {playerObj.gameObject.scene.name}");
+
+        Debug.Log($"TryGet = {runner.TryGetPlayerObject(player, out var check)}");
+        Debug.Log($"Same = {ReferenceEquals(check, playerObj)}");
+
+        Debug.Log($"Runner scene={runner.gameObject.scene.name}");
+        Debug.Log($"Player scene={playerObj.gameObject.scene.name}");
     }
 
     /// <summary>
@@ -56,6 +90,7 @@ public class SpawnManager : MonoBehaviour
     /// <param name="player"></param>
     void RemovePlayer(PlayerRef player)
     {
+        Debug.Log("RemovePlayer");
         var runner = NetworkManager.Instance.Runner;
 
         if (!runner.IsServer)
@@ -71,6 +106,20 @@ public class SpawnManager : MonoBehaviour
                 runner.Despawn(networkPlayer.VehicleObject);
             }
             runner.Despawn(playerObj);
+        }
+    }
+
+    public void SpawnAllPlayers()
+    {
+        foreach (var player in NetworkManager.Instance.Runner.ActivePlayers)
+        {
+            if (!NetworkManager.Instance.Runner.TryGetPlayerObject(player, out var obj))
+                continue;
+
+            var networkPlayer = obj.GetComponent<NetworkPlayer>();
+
+            if (networkPlayer.VehicleObject == null)
+                networkPlayer.SpawnVehicle(RoomState.Instance.CurrentMode);
         }
     }
 }

@@ -95,8 +95,21 @@ namespace Tanks.Complete
 
         [Header("接地判定")]
 
-        [Tooltip("接地チェックに使うRayの長さ（車体中心から地面までの距離より少し長めに設定）")]
+        [Tooltip("接地チェックに使うRayの長さ（車体中心から地面までの距離より少し長めに設定）。" +
+            "坂道のピッチ追従など、通常の接地判定全般で使われる")]
         public float groundCheckDistance = 0.6f;
+
+        [Tooltip("ホップ・落下制御（跳ね防止/落下加速）で使う「空中にいるか」の判定距離。" +
+            "※ドリフトホップの許可はこの距離ではなく、物理エンジンの衝突コンタクト" +
+            "（実際に地面に触れているか）で判定するようになったため、この値の調整を" +
+            "間違えてもホップの連打バグは発生しない")]
+        public float hopGroundCheckDistance = 1.0f;
+
+        [Tooltip("ドリフト開始ホップの後、着地判定（ホップ許可の復活）を受け付けない猶予時間（秒）。" +
+            "ホップのインパルスが物理エンジンに反映されるまで1〜2フレームの遅れがあり、" +
+            "その間はまだ地面に触れたままなので、そこで即座に許可が復活してしまわないための保護。" +
+            "基本的にデフォルトのままで問題ない")]
+        public float hopCooldown = 0.2f;
 
         [Tooltip("接地判定の対象レイヤー（未設定なら全レイヤーが対象）")]
         public LayerMask groundMask = ~0;
@@ -207,6 +220,18 @@ namespace Tanks.Complete
         // ドリフト状態
         private bool drifting;      // ドリフト中かどうか
         private int driftDirection; // ドリフト方向（1:右、-1:左）
+
+        // ドリフト開始ホップの連打対策：次のホップまでの残りクールダウン秒数
+        private float hopCooldownTimer;
+
+        // 着地ラッチ：ホップ可能かどうか。ホップした瞬間にfalseになり、
+        // 物理エンジンの衝突コンタクトで「実際に地面に着地した」と確認できるまで復活しない。
+        // Rayの距離チューニングに依存しないので、連打によるすり抜けが原理的に起きない
+        private bool readyToHop = true;
+
+        // この物理ステップ中に「地面（maxSlopeAngle以内の上向き面）」との衝突コンタクトがあったか。
+        // OnCollisionEnter/Stayで立てられ、FixedUpdateで消費・リセットされる
+        private bool touchingGroundThisStep;
 
         // 空中にいる継続時間（ドリフト開始ホップと本格的な落下を区別するため）
         private float airborneTime;
@@ -331,14 +356,23 @@ namespace Tanks.Complete
             if (Mathf.Abs(m_InputReader.MoveInput.y) < 0.1f) moveInput = 0f;
             if (Mathf.Abs(m_InputReader.MoveInput.x) < 0.1f) turnInput = 0f;
 
+            // ドリフト開始ホップのクールダウンを減算
+            if (hopCooldownTimer > 0f)
+            {
+                hopCooldownTimer -= Time.deltaTime;
+            }
+
             // ── ドリフト開始・終了判定 ────────────────────────
             if (Input.GetKey(KeyCode.LeftShift) && moveInput > 0f)
             {
                 // 前進中かつShiftキー押下 → ドリフト可能
-                // 地面に接地している時だけホップ＆ドリフト開始を許可する
-                // （接地チェックが無いと、着地前にShiftを連打するたびにインパルスが
-                //   加算され続けてしまい、無限に宙に浮き続けるバグになる）
-                if (!drifting && IsGrounded())
+                // ホップの許可は「着地ラッチ（readyToHop）」で管理する。
+                // ホップした瞬間にfalseになり、物理エンジンの衝突コンタクトで実際に
+                // 地面へ着地したと確認できるまで復活しない（FixedUpdate側で更新）。
+                // ※以前はRaycastの距離でここを判定していたが、距離の値がColliderの
+                //   設定や坂に依存してズレるたびに連打バグがすり抜けていたため、
+                //   距離に依存しない衝突コンタクトベースの方式に変更した。
+                if (!drifting && readyToHop)
                 {
                     // ドリフト開始した瞬間だけ上方向に小さく跳ねる（演出）
                     rb.AddForce(Vector3.up * 20f, ForceMode.Impulse);
@@ -346,6 +380,10 @@ namespace Tanks.Complete
                     // 開始時のみ方向を決定、以降は変更しない
                     driftDirection = turnInput > 0 ? 1 : -1;
                     drifting = true;
+
+                    // 着地するまで次のホップは不可
+                    readyToHop = false;
+                    hopCooldownTimer = hopCooldown;
 
                     // ドリフト開始 → タイヤの煙パーティクルを再生
                     StartDriftParticles();
@@ -518,6 +556,27 @@ namespace Tanks.Complete
 
         void FixedUpdate()
         {
+            // ── 着地ラッチの更新（ドリフトホップの許可管理） ──────
+            // 直前の物理ステップで「地面（maxSlopeAngle以内の上向き面）」に実際に触れて
+            // いたかどうか（OnCollisionEnter/Stayが立てるフラグ）でホップ許可を管理する。
+            // Raycastの距離チューニングと違い、物理エンジンの接触そのものを見るので
+            // 「浮いているのに接地扱い」になる余地がない。
+            if (touchingGroundThisStep)
+            {
+                // ホップ直後の1〜2フレームはインパルスがまだ反映されておらず接触が残っている
+                // ため、hopCooldownが明けるまでは許可を復活させない
+                if (hopCooldownTimer <= 0f)
+                {
+                    readyToHop = true;
+                }
+            }
+            else
+            {
+                // 地面に触れていない（ホップ中・落下中・空中）間はホップ不可
+                readyToHop = false;
+            }
+            touchingGroundThisStep = false; // 次の物理ステップの集計用にリセット
+
             // ── 跳ね防止 ＆ 落下速度の制御 ───────────────────
             // 車が勝手に跳ね上がったり沈みすぎたりしないように制御。
             // ※単純にClampするだけだと、RigidbodyのLinear Damping(Drag)が効いている場合に
@@ -530,7 +589,10 @@ namespace Tanks.Complete
             //   接地中（坂を登っている時など）までY速度を制限すると、坂なりに上昇しようとする
             //   自然な速度成分まで頭打ちにされてしまい、地面との当たり判定と競合して
             //   登り坂で不自然に失速する原因になっていた。
-            if (IsGrounded())
+            // ※ここの接地判定は、坂道用の長いgroundCheckDistanceではなく、ホップと同じ
+            //   hopGroundCheckDistanceを使う。長い方を使うと、ホップで浮いた直後もまだ
+            //   「(長い距離では)接地中」と判定され続け、跳ね上がり防止が効かない空白期間ができてしまう。
+            if (IsGrounded(out _, hopGroundCheckDistance))
             {
                 airborneTime = 0f;
             }
@@ -723,6 +785,15 @@ namespace Tanks.Complete
             // Groundタグのオブジェクトに触れたら速度倍率を下げる
             if (collision.gameObject.CompareTag("Ground"))
                 currentSpeedMultiplier = groundSpeedMultiplier;
+
+            // 着地ラッチ用：地面との接触を検出（着地した瞬間を逃さないようEnterでも見る）
+            CheckGroundContact(collision);
+        }
+
+        void OnCollisionStay(Collision collision)
+        {
+            // 着地ラッチ用：地面に触れ続けている間、毎物理ステップでフラグを立てる
+            CheckGroundContact(collision);
         }
 
         void OnCollisionExit(Collision collision)
@@ -732,16 +803,32 @@ namespace Tanks.Complete
                 currentSpeedMultiplier = 1.0f;
         }
 
+        // 衝突コンタクトの中に「地面とみなせる上向きの面」があるかを調べ、あればフラグを立てる。
+        // 面の判定基準は坂道追従と同じmaxSlopeAngleを使う（＝maxSlopeAngle以内の傾きまでを地面扱い）。
+        // 壁（ほぼ垂直な面）との接触はここを通らないので、壁に擦りながらのホップ再許可は起きない。
+        void CheckGroundContact(Collision collision)
+        {
+            float minNormalY = Mathf.Cos(maxSlopeAngle * Mathf.Deg2Rad);
+
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                if (collision.GetContact(i).normal.y >= minNormalY)
+                {
+                    touchingGroundThisStep = true;
+                    return;
+                }
+            }
+        }
+
 
         // =====================================================
         // ■ 接地判定（Raycast）
         // =====================================================
 
-        // 車体中心から真下にRayを飛ばして、地面に触れているか・地面の法線を判定する。
-        // ドリフト開始ホップの多重発生防止（Update側）と、坂道のピッチ追従（FixedUpdate側）に使用。
-        bool IsGrounded(out Vector3 normal)
+        // 車体中心から真下に、指定したdistanceでRayを飛ばして地面判定・法線取得を行う。
+        bool IsGrounded(out Vector3 normal, float distance)
         {
-            if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, groundCheckDistance, groundMask))
+            if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, distance, groundMask))
             {
                 normal = hit.normal;
                 return true;
@@ -751,18 +838,28 @@ namespace Tanks.Complete
             return false;
         }
 
-        // 法線が不要な呼び出し用（Update側の !drifting && IsGrounded()、空中時間の判定など）
+        // groundCheckDistanceを使う通常版（坂道のピッチ追従など）
+        bool IsGrounded(out Vector3 normal)
+        {
+            return IsGrounded(out normal, groundCheckDistance);
+        }
+
+        // 法線が不要な呼び出し用（空中時間の判定など。groundCheckDistanceを使用）
         bool IsGrounded()
         {
-            return IsGrounded(out _);
+            return IsGrounded(out _, groundCheckDistance);
         }
 
 #if UNITY_EDITOR
-        // Scene view上でRayを可視化（groundCheckDistanceの調整用。緑=接地中/赤=非接地）
+        // Scene view上でRayを可視化。
+        // 緑/赤＝通常の接地判定(groundCheckDistance)、水色/マゼンタ＝ホップ許可専用の短い判定(hopGroundCheckDistance)
         void OnDrawGizmosSelected()
         {
             Gizmos.color = IsGrounded() ? Color.green : Color.red;
             Gizmos.DrawLine(transform.position, transform.position + Vector3.down * groundCheckDistance);
+
+            Gizmos.color = IsGrounded(out _, hopGroundCheckDistance) ? Color.cyan : Color.magenta;
+            Gizmos.DrawLine(transform.position, transform.position + Vector3.down * hopGroundCheckDistance);
         }
 #endif
     }

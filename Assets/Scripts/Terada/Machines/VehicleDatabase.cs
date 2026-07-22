@@ -1,10 +1,24 @@
 using Fusion;
+using Tanks.Complete;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "VehicleDatabase", menuName = "Scriptable Objects/VehicleDatabase")]
 public class VehicleDatabase : ScriptableObject
 {
-    public NetworkPrefabRef[] vehicles;     // マシンのリスト.
+    [System.Serializable]
+    public class VehicleData
+    {
+        public GameModes gameModes;
+        public VehicleType type;
+        public string vehicleName;
+        public Sprite icon;
+        public NetworkPrefabRef prefab;
+        public float maxSpeed;
+    }
+
+    [SerializeField]
+    public VehicleData[] vehicles;     // マシンのリスト.
+
     static VehicleDatabase _instance;
 
     public static VehicleDatabase Instance
@@ -21,13 +35,26 @@ public class VehicleDatabase : ScriptableObject
     }
 
     /// <summary>
-    /// 車の取得.
-    /// 使用例：VehivleDatabase.Instance.Get(3);
+    /// 車両の取得.
     /// </summary>
-    /// <param name="vehicleID"></param>
+    /// <param name="type"></param>
     /// <returns></returns>
-    public NetworkPrefabRef Get(int vehicleID)
+    public VehicleData Get(VehicleType type)
     {
-        return vehicles[vehicleID];
+        foreach (var vehicle in vehicles)
+        {
+            if (vehicle.type == type)
+            {
+                return vehicle;
+            }
+        }
+        return null;
+    }
+
+    public NetworkPrefabRef GetPrefab(VehicleType type)
+    {
+        VehicleData data = Get(type);
+
+        return data != null ? data.prefab : default;
     }
 }
