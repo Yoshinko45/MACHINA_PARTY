@@ -127,6 +127,13 @@ namespace Tanks.Complete
         // 追従できるよう、毎フレームm_Targetそのものと比較する）
         private Transform m_ResolvedTargetFor;
 
+        // ターゲットが（初回設定時、または途中で差し替えられて）変わった直後はtrue。
+        // trueの間はLateUpdateで位置・向きの補間を行わず、目標地点へ即座にスナップさせる。
+        // （これが無いと、m_FollowPosition/m_CurrentYawが初期値[0など]のまま
+        // 　補間の開始点として使われてしまい、再生開始直後にカメラが原点付近から
+        // 　車の背後へ横移動しながら滑ってくるように見えてしまう＝今回の不具合の原因）
+        private bool m_NeedsSnapToTarget;
+
         // シェイクの影響を受けない「本来の追従位置」（シェイクをここに混ぜ込まないための専用変数）
         private Vector3 m_FollowPosition;
 
@@ -282,7 +289,7 @@ namespace Tanks.Complete
             //
             // =================================================
 
-            if (m_IsReversed || justToggled)
+            if (m_IsReversed || justToggled || m_NeedsSnapToTarget)
             {
                 m_FollowPosition = desiredPosition;
             }
@@ -347,7 +354,7 @@ namespace Tanks.Complete
                             Vector3.up
                         );
 
-                    if (justToggled)
+                    if (justToggled || m_NeedsSnapToTarget)
                     {
                         transform.rotation = desiredRotation;
                     }
@@ -369,6 +376,10 @@ namespace Tanks.Complete
                     }
                 }
             }
+
+            // このフレームで使い終わったのでリセット
+            // （次のフレームからはいつも通り滑らかに補間する）
+            m_NeedsSnapToTarget = false;
         }
 
 
@@ -513,6 +524,19 @@ namespace Tanks.Complete
 
                 m_ShakeTimer = 0f;
                 m_ShakeOffset = Vector3.zero;
+
+                // ── ターゲットが変わった最初のフレーム用の初期化 ──────────
+                // ここでm_CurrentYawをターゲットの現在の向きに合わせておくことで、
+                // このあとLateUpdate内で行われるYawの補間（LerpAngle）が
+                // 0度などの初期値からではなく正しい角度から始まるようにする。
+                // 位置・向きの補間そのものをスキップして即座にスナップさせる処理は
+                // LateUpdate側でこのフラグを見て行う。
+                if (m_Target != null)
+                {
+                    m_CurrentYaw = m_Target.eulerAngles.y;
+                }
+
+                m_NeedsSnapToTarget = true;
             }
 
             // ── 対象の現在のドリフト段階を取得 ──────────────────

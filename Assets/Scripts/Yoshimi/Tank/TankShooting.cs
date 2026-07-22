@@ -32,7 +32,8 @@ namespace Tanks.Complete
 
         [Header("UI")]
 
-        // チャージゲージ
+        // チャージ＆クールダウンゲージ
+        // （チャージ中は威力、発射後は空へ戻るまでのクールダウン経過を表示）
         public Slider m_AimSlider;
 
 
@@ -109,6 +110,10 @@ namespace Tanks.Complete
         // クールタイムタイマー
         private float m_ShotCooldownTimer;
 
+        // クールダウン表示の開始値（発射した瞬間のチャージ量。
+        // そこから空へ向かって滑らかに減っていく際の起点として使う）
+        private float m_ShotCooldownStartValue;
+
 
         // =====================================================
         // ■ 特殊弾関連
@@ -178,6 +183,15 @@ namespace Tanks.Complete
 
             // チャージ停止
             m_IsCharging = false;
+
+            // クールタイムもリセット
+            // （前ラウンド／前回有効化時の残りを持ち越さない。
+            // 　これが無いと、まだ一度も発射していないのに
+            // 　「クールタイム明け＝満タン」と誤判定されてしまう）
+            m_ShotCooldownTimer = 0f;
+
+            m_ShotCooldownStartValue =
+                m_MinLaunchForce;
 
 
             // =================================================
@@ -285,6 +299,49 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ 非チャージ中のスライダー値（クールダウン表現）
+        // =====================================================
+        //
+        // 発射前の初期状態、およびクールタイムが明けた後はmin（空＝通常状態）。
+        // 発射した瞬間は発射時のチャージ量(m_ShotCooldownStartValue)から始まり、
+        // そのタンク自身のm_ShotCooldownの長さに合わせてminへ滑らかに戻っていく。
+        //
+        // =====================================================
+
+        private float GetCooldownSliderValue()
+        {
+            // クールタイム無し（発射前の初期状態、またはクールタイム終了後）
+            // → 通常の空（待機）状態
+            if (m_ShotCooldownTimer <= 0f)
+            {
+                return m_BaseMinLaunchForce;
+            }
+
+            // m_ShotCooldownが0以下（設定ミス）なら即座に空扱いにして
+            // ゼロ除算を避ける
+            if (m_ShotCooldown <= 0.0001f)
+            {
+                return m_BaseMinLaunchForce;
+            }
+
+            // 残り割合（1＝発射直後 〜 0＝クールタイム終了）
+            float remainingRatio =
+                Mathf.Clamp01(
+                    m_ShotCooldownTimer /
+                    m_ShotCooldown
+                );
+
+            // 発射した瞬間の値から空(m_BaseMinLaunchForce)へ、
+            // クールタイムの経過に合わせて滑らかに戻す
+            return Mathf.Lerp(
+                m_BaseMinLaunchForce,
+                m_ShotCooldownStartValue,
+                remainingRatio
+            );
+        }
+
+
+        // =====================================================
         // ■ プレイヤー操作更新
         // =====================================================
 
@@ -323,14 +380,19 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 待機中UI
+            // 待機中UI（クールダウン表現）
+            // =================================================
+            //
+            // 発射直後は発射時のチャージ量、m_ShotCooldownの時間を
+            // かけて空（通常状態）へ戻っていくように見せる
+            //
             // =================================================
 
             if (!m_IsCharging &&
                 m_AimSlider != null)
             {
                 m_AimSlider.value =
-                    m_BaseMinLaunchForce;
+                    GetCooldownSliderValue();
             }
 
 
@@ -421,11 +483,28 @@ namespace Tanks.Complete
 
         private void ComputerUpdate()
         {
-            // UI更新
+            // =================================================
+            // クールタイム減少
+            // =================================================
+            //
+            // HumanUpdate側と同様にここでも減らしておかないと、
+            // CPUタンクだけクールダウン表示が発射後ずっと
+            // 空のまま止まって見えてしまう
+            //
+            // =================================================
+
+            if (m_ShotCooldownTimer > 0f)
+            {
+                m_ShotCooldownTimer -=
+                    Time.deltaTime;
+            }
+
+
+            // UI更新（クールダウン表現。チャージ中は下で上書きされる）
             if (m_AimSlider != null)
             {
                 m_AimSlider.value =
-                    m_BaseMinLaunchForce;
+                    GetCooldownSliderValue();
             }
 
 
@@ -597,6 +676,11 @@ namespace Tanks.Complete
             // =================================================
             // リセット
             // =================================================
+
+            // クールダウン表示の開始値として、発射した瞬間の
+            // チャージ量を保存しておく（リセットで上書きされる前に）
+            m_ShotCooldownStartValue =
+                m_CurrentLaunchForce;
 
             m_CurrentLaunchForce =
                 m_MinLaunchForce;
