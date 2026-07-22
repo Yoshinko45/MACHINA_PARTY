@@ -10,7 +10,7 @@ namespace Tanks.Complete
     // ・タンク後方から見る三人称視点
     // ・滑らかに移動、回転する
     // ・分割画面対応
-    // ・キー入力でバックビュー（反転視点）に切り替え可能
+    // ・キー入力／ゲームパッド（X or Yボタン）でバックビュー（反転視点）に切り替え可能
     //
     [RequireComponent(typeof(Camera))]
     public class RaceCameraFollow : MonoBehaviour
@@ -70,7 +70,8 @@ namespace Tanks.Complete
         // ■ 視点反転（バックビュー）設定
         // =====================================================
         //
-        // 指定したキーで、車の前方（m_ReverseOffset基準）へカメラを切り替え、
+        // 指定したキー（またはゲームパッドのX/Yボタン）で、
+        // 車の前方（m_ReverseOffset基準）へカメラを切り替え、
         // 自分の車と後方から追ってくる相手の両方を見られるようにする。
         // 向きはLookAtを使わず、車の向き＋m_ReverseTiltAngleで直接指定。
         // 反転する瞬間・解除する瞬間のどちらも、追従の遅延（後追い）を
@@ -80,7 +81,7 @@ namespace Tanks.Complete
 
         [Header("視点反転（バックビュー）")]
 
-        [Tooltip("このキーでカメラを反転（後方確認）できます")]
+        [Tooltip("このキーでカメラを反転（後方確認）できます（ゲームパッドはX/Yボタンで固定対応）")]
         public KeyCode m_ReverseKey = KeyCode.C;
 
         [Tooltip("ON：キーを押している間だけ反転／OFF：押すたびに反転⇔通常を切り替え（トグル式）")]
@@ -121,6 +122,9 @@ namespace Tanks.Complete
 
         // 追跡対象のCarMovement（ドリフト段階の監視用。取得できなければ演出は発生しない）
         private CarMovement m_TargetCarMovement;
+
+        // 追跡対象のInputReader（後方確認のゲームパッド入力を、その対象自身のデバイスから読むために使用）
+        private InputReader m_TargetInputReader;
 
         // m_TargetCarMovementを解決した時点のm_Target（変化検知用。
         // SetTarget()を経由せずInspectorで直接Targetが差し替えられても
@@ -197,14 +201,18 @@ namespace Tanks.Complete
             // =================================================
             // 反転（バックビュー）入力判定
             // =================================================
+            // ゲームパッド側（対象自身のInputReaderのX/Yボタン）の状態
+            bool gamepadReverseHeld    = m_TargetInputReader != null && m_TargetInputReader.LookBackHeld;
+            bool gamepadReversePressed = m_TargetInputReader != null && m_TargetInputReader.LookBackPressed;
+
             if (m_HoldToReverse)
             {
-                // 押している間だけ反転
-                m_IsReversed = Input.GetKey(m_ReverseKey);
+                // 押している間だけ反転（キーボード／ゲームパッドどちらでも反応）
+                m_IsReversed = Input.GetKey(m_ReverseKey) || gamepadReverseHeld;
             }
-            else if (Input.GetKeyDown(m_ReverseKey))
+            else if (Input.GetKeyDown(m_ReverseKey) || gamepadReversePressed)
             {
-                // 押すたびに反転⇔通常を切り替え
+                // 押すたびに反転⇔通常を切り替え（キーボード／ゲームパッドどちらでも反応）
                 m_IsReversed = !m_IsReversed;
             }
 
@@ -514,6 +522,14 @@ namespace Tanks.Complete
                 m_TargetCarMovement =
                     m_Target != null
                         ? m_Target.GetComponentInParent<CarMovement>()
+                        : null;
+
+                // 後方確認のゲームパッド入力は、対象自身のInputReaderから読む
+                // （分割画面で複数の車を追う場合でも、各カメラが自分の対象の
+                // 　デバイスだけを見るようにするため）
+                m_TargetInputReader =
+                    m_Target != null
+                        ? m_Target.GetComponentInParent<InputReader>()
                         : null;
 
                 // 対象切り替え時に、前の対象のシェイク・段階を引き継がないようリセット

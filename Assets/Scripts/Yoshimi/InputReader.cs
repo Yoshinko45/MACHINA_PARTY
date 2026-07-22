@@ -19,10 +19,18 @@ namespace Tanks.Complete
         [Header("Control Type")]
 
         /*
+            0  = 自動判定（WASD／矢印キー／ゲームパッド1台目のうち、
+                 実際に触っているものがそのまま反映される）
+                 例：1人でのテストプレイ中に、キーボードと
+                 ゲームパッドをInspectorをいじらずその場で
+                 切り替えたい時に使う
             1  = WASD + Space
             2  = Arrow + Enter
             10以上 = Gamepad（10 + Gamepad.all のインデックス）
                 例: 10 = 1台目のパッド, 11 = 2台目, 12 = 3台目...
+
+            ※複数人の参加（GameUIHandlerの参加画面）は
+              これまで通り1／2／10以上を使うので、0とは無関係
         */
 
         public int ControlIndex = 1;
@@ -102,6 +110,57 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ レースモード（車）用の入力
+        // =====================================================
+        //
+        // CarMovement / RaceCameraFollow から参照される。
+        // キーボード（WASD/矢印）は既存のMoveInputをそのまま使うが、
+        // ゲームパッドだけはY軸をスティックではなくボタン式
+        // （東=アクセル／南=ブレーキ・バック）に上書きする。
+        //
+        // =====================================================
+
+        /// <summary>
+        /// 車の移動入力（マリカー風）
+        /// X = ハンドル（左右）
+        /// Y = アクセル/ブレーキ（前後）
+        /// </summary>
+        public Vector2 CarMoveInput
+        {
+            get;
+            private set;
+        }
+
+        /// <summary>
+        /// ドリフトボタンを押している間
+        /// （WASD＝左Shift／ゲームパッド＝Rボタン（右肩ボタン））
+        /// </summary>
+        public bool DriftHeld
+        {
+            get;
+            private set;
+        }
+
+        /// <summary>
+        /// 後方確認ボタンを押している間（ゲームパッドのみ。X or Yボタン）
+        /// </summary>
+        public bool LookBackHeld
+        {
+            get;
+            private set;
+        }
+
+        /// <summary>
+        /// 後方確認ボタンを押した瞬間（ゲームパッドのみ。X or Yボタン）
+        /// </summary>
+        public bool LookBackPressed
+        {
+            get;
+            private set;
+        }
+
+
+        // =====================================================
         // ■ Update
         // =====================================================
 
@@ -120,12 +179,28 @@ namespace Tanks.Complete
 
             IsUsingGamepad = false;
 
+            // レースモード用（車を操作していないデバイスでは常にニュートラル）
+            CarMoveInput    = Vector2.zero;
+            DriftHeld       = false;
+            LookBackHeld    = false;
+            LookBackPressed = false;
+
+
+            // =================================================
+            // ■ 自動判定（WASD／矢印キー／ゲームパッド1台目）
+            // =================================================
+
+            if (ControlIndex == 0)
+            {
+                ReadAnyInput();
+            }
+
 
             // =================================================
             // ■ WASD操作
             // =================================================
 
-            if (ControlIndex == 1)
+            else if (ControlIndex == 1)
             {
                 ReadWASDInput();
             }
@@ -170,7 +245,7 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ WASD入力（TankBattleモード）
+        // ■ WASD入力（Tank/Car共通）
         // =====================================================
 
         private void ReadWASDInput()
@@ -191,11 +266,17 @@ namespace Tanks.Complete
             FirePressed  = Keyboard.current.spaceKey.wasPressedThisFrame;
             FireReleased = Keyboard.current.spaceKey.wasReleasedThisFrame;
             FireHeld     = Keyboard.current.spaceKey.isPressed;
+
+            // レースモード用：ハンドル/アクセル/ブレーキはMoveInputをそのまま流用
+            CarMoveInput = MoveInput;
+
+            // ドリフトは左Shift
+            DriftHeld = Keyboard.current.leftShiftKey.isPressed;
         }
 
 
         // =====================================================
-        // ■ 矢印キー入力（TankBattleモード）
+        // ■ 矢印キー入力（Tank/Car共通）
         // =====================================================
 
         private void ReadArrowInput()
@@ -220,7 +301,7 @@ namespace Tanks.Complete
 
 
         // =====================================================
-        // ■ ゲームパッド入力（TankBattleモード）
+        // ■ ゲームパッド入力（Tank/Car共通）
         // =====================================================
 
         private void ReadGamepadInput(int index)
@@ -244,6 +325,156 @@ namespace Tanks.Complete
             FireHeld     = pad.rightShoulder.isPressed;
 
             IsUsingGamepad = true;
+
+
+            // =================================================
+            // レースモード用（マリカー風ボタン配置）
+            // =================================================
+            //
+            // 左スティックはハンドル（左右）専用にし、
+            // 前後はスティックではなくボタン式にする。
+            //
+            // ボタンは位置（東/南）で判定しているため、
+            // 実機での表記は機種ごとに以下のようになる：
+            //   東（右） … Xbox=B／PlayStation=○／Switch=A → アクセル
+            //   南（下） … Xbox=A／PlayStation=×／Switch=B → ブレーキ・バック
+            //
+            // =================================================
+
+            bool accelHeld = pad.buttonEast.isPressed;
+            bool brakeHeld = pad.buttonSouth.isPressed;
+
+            float carY = accelHeld ? 1f : (brakeHeld ? -1f : 0f);
+            CarMoveInput = new Vector2(MoveInput.x, carY);
+
+            // ドリフトはRボタン（右肩ボタン）
+            DriftHeld = pad.rightShoulder.isPressed;
+
+            // 後方確認はXボタン or Yボタン（位置でいう北・西のどちらでも反応）
+            LookBackHeld    = pad.buttonNorth.isPressed          || pad.buttonWest.isPressed;
+            LookBackPressed = pad.buttonNorth.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame;
+        }
+
+
+        // =====================================================
+        // ■ 自動判定入力（WASD／矢印キー／ゲームパッド1台目）
+        // =====================================================
+        //
+        // ControlIndex = 0 の専用モード。
+        // 「このデバイスに固定」ではなく、WASD・矢印キー・
+        // ゲームパッド1台目のうち、実際に触っているものを
+        // そのまま合成して反映する（同時に何も触ってなければ
+        // ニュートラルのまま）。
+        //
+        // レースモードのようにまだ1人しか操作しないシーンで、
+        // キーボードとゲームパッドをInspectorをいじらずに
+        // その場で切り替えてテストしたい時のためのモード。
+        //
+        // ※複数人の参加（GameUIHandlerの参加画面）は各デバイスに
+        // 　固定の番号（1／2／10以上）を割り当てる方式のままなので、
+        // 　このモードとは無関係（GameUIHandlerが0を割り当てることはない）。
+        //
+        // =====================================================
+
+        private void ReadAnyInput()
+        {
+            // ── WASD分 ────────────────────────────────────
+            float wasdX = 0f, wasdY = 0f;
+            bool wasdFirePressed = false, wasdFireHeld = false, wasdFireReleased = false;
+            bool wasdDrift = false;
+
+            if (Keyboard.current != null)
+            {
+                if (Keyboard.current.aKey.isPressed) wasdX -= 1f;
+                if (Keyboard.current.dKey.isPressed) wasdX += 1f;
+                if (Keyboard.current.wKey.isPressed) wasdY += 1f;
+                if (Keyboard.current.sKey.isPressed) wasdY -= 1f;
+
+                wasdFirePressed  = Keyboard.current.spaceKey.wasPressedThisFrame;
+                wasdFireReleased = Keyboard.current.spaceKey.wasReleasedThisFrame;
+                wasdFireHeld     = Keyboard.current.spaceKey.isPressed;
+
+                wasdDrift = Keyboard.current.leftShiftKey.isPressed;
+            }
+
+            // ── 矢印キー分 ──────────────────────────────────
+            float arrowX = 0f, arrowY = 0f;
+            bool arrowFirePressed = false, arrowFireHeld = false, arrowFireReleased = false;
+
+            if (Keyboard.current != null)
+            {
+                if (Keyboard.current.leftArrowKey.isPressed)  arrowX -= 1f;
+                if (Keyboard.current.rightArrowKey.isPressed) arrowX += 1f;
+                if (Keyboard.current.upArrowKey.isPressed)    arrowY += 1f;
+                if (Keyboard.current.downArrowKey.isPressed)  arrowY -= 1f;
+
+                arrowFirePressed  = Keyboard.current.enterKey.wasPressedThisFrame;
+                arrowFireReleased = Keyboard.current.enterKey.wasReleasedThisFrame;
+                arrowFireHeld     = Keyboard.current.enterKey.isPressed;
+            }
+
+            // ── ゲームパッド分（1台目のみ） ───────────────────
+            // ※自動判定モードは1人プレイ想定のため、合成対象は1台目に限定する
+            Vector2 padMove = Vector2.zero;
+            Vector2 padLook = Vector2.zero;
+            bool padFirePressed = false, padFireHeld = false, padFireReleased = false;
+            float padCarY = 0f;
+            bool padDrift = false;
+            bool padLookBackHeld = false, padLookBackPressed = false;
+            bool padExists = false;
+
+            if (Gamepad.all.Count > 0 && Gamepad.all[0] != null)
+            {
+                Gamepad pad = Gamepad.all[0];
+                padExists = true;
+
+                padMove = pad.leftStick.ReadValue();
+                padLook = pad.rightStick.ReadValue();
+
+                padFirePressed  = pad.rightShoulder.wasPressedThisFrame;
+                padFireReleased = pad.rightShoulder.wasReleasedThisFrame;
+                padFireHeld     = pad.rightShoulder.isPressed;
+
+                bool accelHeld = pad.buttonEast.isPressed;
+                bool brakeHeld = pad.buttonSouth.isPressed;
+                padCarY = accelHeld ? 1f : (brakeHeld ? -1f : 0f);
+
+                padDrift = pad.rightShoulder.isPressed;
+
+                padLookBackHeld    = pad.buttonNorth.isPressed           || pad.buttonWest.isPressed;
+                padLookBackPressed = pad.buttonNorth.wasPressedThisFrame || pad.buttonWest.wasPressedThisFrame;
+            }
+
+            // ── 合成 ──────────────────────────────────────
+            // 同時に複数のデバイスを触ることは基本無い前提なので、
+            // 単純に足し合わせるだけで「触っている方がそのまま反映される」
+            float mergedX = wasdX + arrowX;
+            float mergedY = wasdY + arrowY;
+
+            MoveInput = new Vector2(mergedX + padMove.x, mergedY + padMove.y);
+            LookInput = padLook;
+
+            FirePressed  = wasdFirePressed  || arrowFirePressed  || padFirePressed;
+            FireHeld     = wasdFireHeld     || arrowFireHeld     || padFireHeld;
+            FireReleased = wasdFireReleased || arrowFireReleased || padFireReleased;
+
+            // ゲームパッドに今実際に触れている間だけtrueにする
+            // （繋いだだけでキーボードを使っている間はfalseのまま＝
+            // 　TankMovement側のカメラ相対操作などが誤爆しないように）
+            IsUsingGamepad =
+                padExists &&
+                (padMove.sqrMagnitude > 0.01f ||
+                 padLook.sqrMagnitude > 0.01f ||
+                 padFireHeld || padDrift || padLookBackHeld ||
+                 Mathf.Abs(padCarY) > 0.01f);
+
+            // レースモード用（キーボードはMoveInputと同じ値、
+            // ゲームパッドだけY軸をボタン式にする点はReadGamepadInputと同じ）
+            CarMoveInput = new Vector2(mergedX + padMove.x, mergedY + padCarY);
+
+            DriftHeld       = wasdDrift || padDrift;
+            LookBackHeld    = padLookBackHeld;
+            LookBackPressed = padLookBackPressed;
         }
     }
 }

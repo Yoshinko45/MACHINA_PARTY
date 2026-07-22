@@ -89107,8 +89107,6 @@ MonoBehaviour:
   driftSidewaysFriction: 0.5
   driftTurnMultiplier: 1.5
   groundCheckDistance: 1.25
-  hopGroundCheckDistance: 1.25
-  hopCooldown: 0.5
   groundMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -89181,7 +89179,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6dcb281170cb83047b66c6ed71a9a830, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.InputReader
-  ControlIndex: 1
+  ControlIndex: 0
 --- !u!114 &1886201978
 MonoBehaviour:
   m_ObjectHideFlags: 0

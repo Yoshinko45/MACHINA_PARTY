@@ -55,10 +55,11 @@ namespace Tanks.Complete
         // =====================================================
 
         /*
-            1 = WASD
-            2 = Arrow
-            3 = Gamepad1
-            4 = Gamepad2
+            0  = 自動判定（WASD／矢印キー／ゲームパッド1台目のうち、
+                 触っているものがそのまま反映される。1人でのテスト用）
+            1  = WASD
+            2  = Arrow
+            10以上 = Gamepad（10 + Gamepad.all のインデックス）
         */
 
         [Header("Control")]
