@@ -56,10 +56,9 @@ namespace Tanks.Complete
         // =====================================================
 
         /*
-            1 = WASD + Space
-            2 = Arrow + Enter
-            3 = Gamepad1
-            4 = Gamepad2
+            1  = WASD + Space
+            2  = Arrow + Enter
+            10以上 = Gamepad（10 + Gamepad.all のインデックス）
         */
 
         [Header("Control")]
@@ -256,13 +255,11 @@ namespace Tanks.Complete
             // タンクカラー変更
             // =================================================
 
-            #if UNITY_EDITOR
             Debug.Log(
                 m_Instance.name +
                 "  IsPersistent = " +
                 UnityEditor.EditorUtility.IsPersistent(m_Instance)
             );
-            #endif
 
             // TankColorという名前を含むマテリアルだけを
             // プレイヤーカラーに変更する。

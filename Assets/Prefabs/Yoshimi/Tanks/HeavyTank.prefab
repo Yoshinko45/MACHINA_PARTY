@@ -87,6 +87,8 @@ MonoBehaviour:
   m_Speed: 10
   m_TurnSpeed: 180
   m_IsDirectControl: 0
+  m_LookDeadzone: 0.3
+  m_LookTurnSpeed: 180
   m_MovementAudio: {fileID: 3767716125109797091}
   m_EngineIdling: {fileID: 8300000, guid: 4932ab25b84dd7649b80af68a9660ddc, type: 3}
   m_EngineDriving: {fileID: 8300000, guid: d7ca9fb5aa30155449192b23d7fb3336, type: 3}

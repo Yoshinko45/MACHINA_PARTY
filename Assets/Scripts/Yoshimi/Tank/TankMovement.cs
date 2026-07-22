@@ -61,6 +61,18 @@ namespace Tanks.Complete
         // TPS風操作になる
         public bool m_IsDirectControl;
 
+        // 右スティックの向き入力を
+        // 有効とみなす最小の倒し具合
+        // これより小さい間は今まで通り
+        // 移動方向を向く
+        [Range(0f, 1f)]
+        public float m_LookDeadzone = 0.3f;
+
+        // 右スティックの向きに合わせる速さ（度/秒）
+        // 大きいほど素早く向きが追従する
+        // （m_TurnSpeedとは別。こちらは右スティック専用）
+        public float m_LookTurnSpeed = 720f;
+
         // =====================================================
         // ■ サウンド設定
         // =====================================================
@@ -117,6 +129,11 @@ namespace Tanks.Complete
         // 左右入力
         // A/D や スティック左右
         private float m_TurnInputValue;
+
+        // 向き入力（右スティック）
+        // ゲームパッド時、移動方向と別に
+        // 向きたい方向を指定する
+        private Vector2 m_LookInputValue;
 
         // ゲームパッド操作中か
         // trueならカメラ方向移動を使用
@@ -266,6 +283,7 @@ namespace Tanks.Complete
             // 入力初期化
             m_MovementInputValue = 0f;
             m_TurnInputValue = 0f;
+            m_LookInputValue = Vector2.zero;
 
             // 爆風速度初期化
             m_ExplosionVelocity = Vector3.zero;
@@ -360,6 +378,10 @@ namespace Tanks.Complete
                     // 左右入力
                     m_TurnInputValue =
                         m_InputReader.MoveInput.x;
+
+                    // 向き入力（右スティック）
+                    m_LookInputValue =
+                        m_InputReader.LookInput;
 
                     // ゲームパッド操作中か
                     m_UsingGamepadScheme =
@@ -468,13 +490,83 @@ namespace Tanks.Complete
             Vector3 moveDirection;
 
             // =================================================
-            // カメラ方向基準移動
+            // ゲームパッド操作
+            // =================================================
+            //
+            // 右スティックの方向へm_LookTurnSpeedの速さで
+            // 向きを合わせる（即座ではなく素早く追従、
+            // という程度の速さにして不自然な瞬間反転を防ぐ）。
+            // 移動は左スティック上下のみを使い、
+            // 常に「今向いている方向」基準で前後する。
+            // 実車の戦車のように、向きと関係ない方向へ
+            // 横移動することは無い（左スティック左右は不使用）。
+            //
             // =================================================
 
-            // ゲームパッド操作 or DirectControl時
-            if ((m_UsingGamepadScheme ||
-                 m_IsDirectControl) &&
+            if (m_UsingGamepadScheme &&
                 Camera.main != null)
+            {
+                // カメラ前方向取得
+                Vector3 camForward =
+                    Camera.main.transform.forward;
+
+                // 上下成分を除去
+                camForward.y = 0f;
+
+                // 正規化
+                camForward.Normalize();
+
+
+                // カメラ右方向取得
+                Vector3 camRight =
+                    Camera.main.transform.right;
+
+                // 上下成分除去
+                camRight.y = 0f;
+
+                // 正規化
+                camRight.Normalize();
+
+
+                // 右スティックの向き
+                Vector3 lookDirection =
+                    camForward * m_LookInputValue.y +
+                    camRight * m_LookInputValue.x;
+
+                // 一定以上倒れていればその方向へ向き直す
+                // （倒れていない間は今の向きを維持）
+                if (lookDirection.sqrMagnitude >
+                    m_LookDeadzone * m_LookDeadzone)
+                {
+                    // 向きたい方向
+                    Quaternion targetRotation =
+                        Quaternion.LookRotation(
+                            lookDirection
+                        );
+
+                    // m_LookTurnSpeedの速さで向きを合わせる
+                    transform.rotation =
+                        Quaternion.RotateTowards(
+                            transform.rotation,
+                            targetRotation,
+                            m_LookTurnSpeed * Time.deltaTime
+                        );
+                }
+
+
+                // 今向いている方向へ前後移動
+                moveDirection =
+                    transform.forward *
+                    m_MovementInputValue;
+            }
+
+
+            // =================================================
+            // カメラ方向基準移動（DirectControl / TPS風）
+            // =================================================
+
+            else if (m_IsDirectControl &&
+                     Camera.main != null)
             {
                 // カメラ前方向取得
                 Vector3 camForward =
@@ -504,20 +596,14 @@ namespace Tanks.Complete
                     camRight * m_TurnInputValue;
 
 
-                // =================================================
                 // 斜め移動速度補正
-                // =================================================
-
                 if (moveDirection.sqrMagnitude > 1f)
                 {
                     moveDirection.Normalize();
                 }
 
 
-                // =================================================
                 // 移動方向を向く
-                // =================================================
-
                 if (moveDirection != Vector3.zero)
                 {
                     // 向きたい方向
@@ -715,7 +801,7 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // 爆風ノックバック速度計算
+            // 爆風速度計算
             // =================================================
 
             m_ExplosionVelocity =

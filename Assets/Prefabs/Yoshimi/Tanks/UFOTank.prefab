@@ -419,6 +419,8 @@ MonoBehaviour:
   m_Speed: 18
   m_TurnSpeed: 240
   m_IsDirectControl: 0
+  m_LookDeadzone: 0.3
+  m_LookTurnSpeed: 240
   m_MovementAudio: {fileID: 7119234567722701857}
   m_EngineIdling: {fileID: 8300000, guid: 4932ab25b84dd7649b80af68a9660ddc, type: 3}
   m_EngineDriving: {fileID: 8300000, guid: d7ca9fb5aa30155449192b23d7fb3336, type: 3}
@@ -747,6 +749,10 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: 98b57e52-1cab-4a72-8023-9b3bb4467642
     m_ActionName: 'GamePlay/Fire[/Keyboard/space,/Keyboard/enter,/Keyboard/rightCtrl,/Keyboard/numpad0]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 40ddd86e-dd82-408f-ab17-cb1be77b7fdd
+    m_ActionName: 'GamePlay/Look[/DualSenseGamepadHID/rightStick]'
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: GamePlay

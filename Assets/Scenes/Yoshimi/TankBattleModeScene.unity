@@ -1112,9 +1112,6 @@ MonoBehaviour:
   m_StartDelay: 3
   m_EndDelay: 3
   m_CameraControl: {fileID: 1139858593}
-  m_PlayMode: 0
-  m_IsOnlineMode: 0
-  m_RaceCameraManager: {fileID: 0}
   m_Tank1Prefab: {fileID: 4488350733067167021, guid: 30319ff81ed984448a499240aee5faaa, type: 3}
   m_Tank2Prefab: {fileID: 641267428853263029, guid: f968ae1596b79744f8d5ca78ce8931f1, type: 3}
   m_Tank3Prefab: {fileID: 2963341467267470317, guid: d925fd6ad646f7a45a4e294271ea4435, type: 3}
@@ -1175,6 +1172,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 247031735357710208, guid: 328826c1fd47c3e4bb07a1dec3ec4c19, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 611112888400403306, guid: 328826c1fd47c3e4bb07a1dec3ec4c19, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1279,6 +1280,7 @@ GameObject:
   - component: {fileID: 1725208105}
   - component: {fileID: 1725208104}
   - component: {fileID: 1725208103}
+  - component: {fileID: 1725208106}
   m_Layer: 5
   m_Name: TankSelect_ Button
   m_TagString: Untagged
@@ -1412,6 +1414,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1725208101}
   m_CullTransparentMesh: 1
+--- !u!114 &1725208106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1725208101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5878fd7f460b0c5478629e4fc1adb5e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.TitleScreenButtonInput
 --- !u!1 &1804006860 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7609624745474981709, guid: 328826c1fd47c3e4bb07a1dec3ec4c19, type: 3}

@@ -19,10 +19,10 @@ namespace Tanks.Complete
         [Header("Control Type")]
 
         /*
-            1 = WASD + Space
-            2 = Arrow + Enter
-            3 = Gamepad1
-            4 = Gamepad2
+            1  = WASD + Space
+            2  = Arrow + Enter
+            10以上 = Gamepad（10 + Gamepad.all のインデックス）
+                例: 10 = 1台目のパッド, 11 = 2台目, 12 = 3台目...
         */
 
         public int ControlIndex = 1;
@@ -38,6 +38,19 @@ namespace Tanks.Complete
         /// Y = 前後
         /// </summary>
         public Vector2 MoveInput
+        {
+            get;
+            private set;
+        }
+
+
+        /// <summary>
+        /// 向き入力（右スティック等）
+        /// 移動とは別に向きたい方向を指定するための入力
+        /// X = 左右
+        /// Y = 前後
+        /// </summary>
+        public Vector2 LookInput
         {
             get;
             private set;
@@ -99,6 +112,7 @@ namespace Tanks.Complete
             // =================================================
 
             MoveInput = Vector2.zero;
+            LookInput = Vector2.zero;
 
             FirePressed  = false;
             FireHeld     = false;
@@ -128,22 +142,17 @@ namespace Tanks.Complete
 
 
             // =================================================
-            // ■ Gamepad1
+            // ■ Gamepad（3台目以降にも対応）
+            // =================================================
+            //
+            // ControlIndexが10以上ならゲームパッドとして扱い、
+            // 10を引いた値をGamepad.allのインデックスとする。
+            //
             // =================================================
 
-            else if (ControlIndex == 3)
+            else if (ControlIndex >= 10)
             {
-                ReadGamepadInput(0);
-            }
-
-
-            // =================================================
-            // ■ Gamepad2
-            // =================================================
-
-            else if (ControlIndex == 4)
-            {
-                ReadGamepadInput(1);
+                ReadGamepadInput(ControlIndex - 10);
             }
 
 
@@ -225,10 +234,14 @@ namespace Tanks.Complete
                 return;
 
             MoveInput = pad.leftStick.ReadValue();
+            LookInput = pad.rightStick.ReadValue();
 
-            FirePressed  = pad.buttonSouth.wasPressedThisFrame;
-            FireReleased = pad.buttonSouth.wasReleasedThisFrame;
-            FireHeld     = pad.buttonSouth.isPressed;
+            // 発射はR1（右肩ボタン）
+            // 右スティックで向きを操作するため、
+            // 親指を離さず人差し指で押せるボタンにする
+            FirePressed  = pad.rightShoulder.wasPressedThisFrame;
+            FireReleased = pad.rightShoulder.wasReleasedThisFrame;
+            FireHeld     = pad.rightShoulder.isPressed;
 
             IsUsingGamepad = true;
         }

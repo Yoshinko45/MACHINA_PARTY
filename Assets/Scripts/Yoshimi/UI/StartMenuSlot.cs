@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Button = UnityEngine.UI.Button;
 using Image = UnityEngine.UI.Image;
 
@@ -118,6 +119,10 @@ namespace Tanks.Complete
         // 現在選択中
         private int m_CurrentTankIndex = 0;
 
+        // このスロットに参加したデバイスの表示名
+        // （例："WASD" "Gamepad 1"）未参加ならnull
+        private string m_DeviceLabel;
+
         // ←→ボタン
         public Button m_LeftTankButton;
         public Button m_RightTankButton;
@@ -154,10 +159,26 @@ namespace Tanks.Complete
                     .SetActive(false);
             }
 
+
+            //=============================================
+            // P1〜P4ボタンは使用しない
+            //=============================================
+            //
+            // 参加はデバイスの参加ボタン（発射ボタン相当）
+            // 押下で自動的に行われるようになったため、
+            // 手動選択用のこれらのボタンは非表示にする。
+            //
+            //=============================================
+
+            m_P1ControlButton.gameObject.SetActive(false);
+            m_P2ControlButton.gameObject.SetActive(false);
+            m_P3ControlButton.gameObject.SetActive(false);
+            m_P4ControlButton.gameObject.SetActive(false);
+
             // 初期背景
             BackgroundImage.sprite =
                 OpenSlotBackground;
-                
+
                 // ボタン登録
                 m_LeftTankButton.onClick.AddListener(
                     PreviousTank);
@@ -191,6 +212,79 @@ namespace Tanks.Complete
                     45.0f * Time.deltaTime
                 );
             }
+
+            // 参加済みデバイスでのタンク切り替え
+            if (!IsOpen && !IsComputer)
+            {
+                PollTankCycleInput();
+            }
+        }
+
+
+        //=================================================
+        // ■ 参加デバイスでのタンク切り替え入力
+        //=================================================
+
+        private void PollTankCycleInput()
+        {
+            bool goPrevious = false;
+            bool goNext = false;
+
+            // WASD参加（A/D）
+            if (PlayerControlling == 1 &&
+                Keyboard.current != null)
+            {
+                goPrevious =
+                    Keyboard.current.aKey
+                        .wasPressedThisFrame;
+
+                goNext =
+                    Keyboard.current.dKey
+                        .wasPressedThisFrame;
+            }
+
+            // 矢印キー参加（←/→）
+            else if (PlayerControlling == 2 &&
+                     Keyboard.current != null)
+            {
+                goPrevious =
+                    Keyboard.current.leftArrowKey
+                        .wasPressedThisFrame;
+
+                goNext =
+                    Keyboard.current.rightArrowKey
+                        .wasPressedThisFrame;
+            }
+
+            // ゲームパッド参加（D-Pad左右）
+            else if (PlayerControlling >= 10)
+            {
+                int gamepadIndex =
+                    PlayerControlling - 10;
+
+                if (Gamepad.all.Count > gamepadIndex)
+                {
+                    Gamepad pad =
+                        Gamepad.all[gamepadIndex];
+
+                    goPrevious =
+                        pad.dpad.left
+                            .wasPressedThisFrame;
+
+                    goNext =
+                        pad.dpad.right
+                            .wasPressedThisFrame;
+                }
+            }
+
+            if (goPrevious)
+            {
+                PreviousTank();
+            }
+            else if (goNext)
+            {
+                NextTank();
+            }
         }
 
 
@@ -216,6 +310,53 @@ namespace Tanks.Complete
             // 背景変更
             BackgroundImage.sprite =
                 UsedSlotBackground;
+
+            // 選択中カーソルの色/表示が残っていればクリア
+            BackgroundImage.color = Color.white;
+            m_DeviceLabel = null;
+            UpdateStatsText();
+        }
+
+
+        //=================================================
+        // ■ デバイス参加による割り当て
+        //=================================================
+        //
+        // ジョイン画面で、デバイスの参加ボタン
+        // （発射ボタン相当）が押された時に呼ばれる。
+        //
+        //=================================================
+
+        public void ClaimByDevice(
+            int controlIndex,
+            string deviceLabel)
+        {
+            // Addボタン非表示
+            m_AddControlButton
+                .gameObject
+                .SetActive(false);
+
+            // 操作選択UI（CPU/Offボタン）を表示
+            m_ControlChoiceRoot
+                .gameObject
+                .SetActive(true);
+
+            // 使用中状態へ
+            IsOpen = false;
+
+            // 背景変更（選択中カーソルの色もリセット）
+            BackgroundImage.sprite =
+                UsedSlotBackground;
+
+            BackgroundImage.color =
+                Color.white;
+
+            // 操作割り当て
+            SetPlayerControlling(controlIndex);
+
+            // デバイス表示名を保存して反映
+            m_DeviceLabel = deviceLabel;
+            UpdateStatsText();
         }
 
 
@@ -238,12 +379,19 @@ namespace Tanks.Complete
             // 操作設定初期化
             SetPlayerControlling(-1);
 
+            // デバイス表示名クリア
+            m_DeviceLabel = null;
+            UpdateStatsText();
+
             // 空き状態へ
             IsOpen = true;
 
-            // 背景変更
+            // 背景変更（選択中カーソルの色もリセット）
             BackgroundImage.sprite =
                 OpenSlotBackground;
+
+            BackgroundImage.color =
+                Color.white;
         }
 
 
@@ -361,6 +509,16 @@ namespace Tanks.Complete
                     IsComputer = true;
 
                     break;
+
+                // ゲームパッド（10以上）
+                default:
+
+                    if (playerNumber >= 10)
+                    {
+                        IsComputer = false;
+                    }
+
+                    break;
             }
         }
 
@@ -423,10 +581,7 @@ namespace Tanks.Complete
             // ステータス表示更新
             //---------------------------------------------
 
-            m_TankStats.text =
-                $"Speed {move.m_Speed}\n" +
-                $"Damage {shoot.m_MaxDamage}\n" +
-                $"Health: {health.m_StartingHealth}";
+            UpdateStatsText();
 
 
             //---------------------------------------------
@@ -490,6 +645,43 @@ namespace Tanks.Complete
             {
                 Destroy(source);
             }
+        }
+
+        //=================================================
+        // ■ ステータステキスト更新
+        //=================================================
+        //
+        // 現在のプレビュータンクの性能に加え、
+        // 参加済みデバイスがあればその表示名を先頭に表示する。
+        //
+        //=================================================
+
+        private void UpdateStatsText()
+        {
+            if (TankPreview == null)
+            {
+                return;
+            }
+
+            TankMovement move =
+                TankPreview.GetComponent<TankMovement>();
+
+            TankShooting shoot =
+                TankPreview.GetComponent<TankShooting>();
+
+            TankHealth health =
+                TankPreview.GetComponent<TankHealth>();
+
+            string prefix =
+                string.IsNullOrEmpty(m_DeviceLabel)
+                    ? ""
+                    : $"<b>{m_DeviceLabel}</b>\n";
+
+            m_TankStats.text =
+                prefix +
+                $"Speed {move.m_Speed}\n" +
+                $"Damage {shoot.m_MaxDamage}\n" +
+                $"Health: {health.m_StartingHealth}";
         }
 
         //=================================================
