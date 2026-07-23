@@ -38,6 +38,86 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ エイム矢印演出
+        // =====================================================
+        //
+        // ・クールダウン中は矢印を指定色（デフォルト赤）にする
+        // ・フルチャージ中（発射待ち）は矢印を振動させる
+        //
+        // 未設定の場合、AimSliderのFill画像から自動取得を試みる。
+        //
+        // =====================================================
+
+        [Header("Aim Arrow")]
+
+        [Tooltip("エイム矢印の画像。未設定ならAimSliderのFillから自動取得")]
+        public Image m_AimArrowImage;
+
+        [Tooltip("クールダウン中の矢印カラー")]
+        public Color m_CooldownColor = Color.red;
+
+        [Tooltip("フルチャージ中の振動の大きさ（ピクセル）")]
+        public float m_FullChargeShakeAmount = 5f;
+
+
+        // =====================================================
+        // ■ エイム矢印：プレイヤー別スプライト
+        // =====================================================
+        //
+        // 矢印スプライトは白色ベースではなく色付きで作られている
+        // ため、Image.colorでの色乗算では正しい色が再現できない
+        // （例：黄色ベースの画像に青をタイントすると緑になる）。
+        //
+        // そのため、色を乗算するのではなく、プレイヤーごとに
+        // 色違いのスプライト自体を差し替える方式にする。
+        //
+        // ※ どのスプライトを使うかは「プレイヤー番号(1〜4)」では
+        // 　 なく、実際のプレイヤーカラー（タンク本体と同じ色）に
+        // 　 一番近い基準色のスプライトを選ぶ。
+        // 　 理由：プレイヤー番号はスロットの「参加順」で決まる
+        // 　 （例：物理的にスロット3・4だけに参加した場合、それが
+        // 　 　 Player1・Player2になる）一方、タンク本体の色は
+        // 　 　 参加した物理スロット自身の色をそのまま使うため、
+        // 　 　 両者は必ずしも一致しない。プレイヤー番号でスプライト
+        // 　 　 を選ぶと、この2人プレイのようなケースで矢印の色と
+        // 　 　 本体の色がズレてしまう。実際の色で選べば、本体の
+        // 　 　 色と矢印は常に一致する。
+        //
+        // ここに割り当てなかった場合は、従来通り色タイントに
+        // フォールバックする。
+        //
+        // =====================================================
+
+        [Header("Aim Arrow - Player Sprites")]
+
+        [Tooltip("Player1（青）用の矢印スプライト")]
+        public Sprite m_ArrowSpriteP1Blue;
+
+        [Tooltip("↑の基準色。実際のプレイヤーカラーがこれに近ければ使う")]
+        public Color m_ReferenceColorP1Blue =
+            new Color(0f, 0.584f, 1f);
+
+        [Tooltip("Player2（赤）用の矢印スプライト")]
+        public Sprite m_ArrowSpriteP2Red;
+
+        [Tooltip("↑の基準色")]
+        public Color m_ReferenceColorP2Red =
+            new Color(1f, 0f, 0.138f);
+
+        [Tooltip("Player3（緑）用の矢印スプライト")]
+        public Sprite m_ArrowSpriteP3Green;
+
+        [Tooltip("↑の基準色")]
+        public Color m_ReferenceColorP3Green = Color.green;
+
+        [Tooltip("Player4（黄）用の矢印スプライト")]
+        public Sprite m_ArrowSpriteP4Yellow;
+
+        [Tooltip("↑の基準色")]
+        public Color m_ReferenceColorP4Yellow = Color.yellow;
+
+
+        // =====================================================
         // ■ サウンド関連
         // =====================================================
 
@@ -114,6 +194,28 @@ namespace Tanks.Complete
         // そこから空へ向かって滑らかに減っていく際の起点として使う）
         private float m_ShotCooldownStartValue;
 
+        // エイム矢印の初期カラー（Awake時に保存し、通常時はこれに戻す）
+        private Color m_AimArrowDefaultColor = Color.white;
+
+        // 矢印の「元のスプライト」（Awake時に保存。クールダウン中の
+        // 表示、およびプレイヤー専用スプライト未設定時のフォール
+        // バックとして使う）
+        private Sprite m_DefaultArrowSprite;
+
+        // SetAimArrowColor()で解決した、このプレイヤー専用の矢印
+        // スプライト（未設定なら null のままで、色タイントにフォール
+        // バックする）
+        private Sprite m_PlayerArrowSprite;
+
+        // このタンクのプレイヤーカラー（SetAimArrowColor()で受け取る。
+        // 矢印だけでなく、発射する弾のトレイル／発光色にも使う）
+        private Color m_PlayerColor = Color.white;
+
+        // 直前フレームで加えた振動オフセット（毎フレーム打ち消してから
+        // 新しい振動を加えるための記録。Sliderが毎フレーム計算する
+        // 「本来の位置」を基準位置として扱うために必要）
+        private Vector3 m_LastShakeOffset = Vector3.zero;
+
 
         // =====================================================
         // ■ 特殊弾関連
@@ -160,6 +262,44 @@ namespace Tanks.Complete
                     gameObject.name +
                     " に InputReader がありません"
                 );
+            }
+
+
+            // =================================================
+            // エイム矢印画像の自動取得
+            // =================================================
+            //
+            // Inspectorで未設定の場合、AimSliderのFill画像を
+            // 矢印画像として扱う（多くの場合Fillが矢印グラフィック）。
+            //
+            // =================================================
+
+            if (m_AimArrowImage == null &&
+                m_AimSlider != null &&
+                m_AimSlider.fillRect != null)
+            {
+                m_AimArrowImage =
+                    m_AimSlider.fillRect
+                        .GetComponent<Image>();
+            }
+
+            // 初期カラー／スプライトを保存
+            //
+            // ※ 位置はここでは保存しない。Fill画像の位置はAimSlider側が
+            // 　 毎フレーム（value変更のたび）自動で計算し直すため、
+            // 　 Awake時点の位置を基準として固定してしまうと、
+            // 　 チャージ量に応じたSlider本来の動きと食い違って
+            // 　 矢印がズレて見えてしまう。
+            if (m_AimArrowImage != null)
+            {
+                m_AimArrowDefaultColor =
+                    m_AimArrowImage.color;
+
+                // クールダウン中の表示に使う「元の矢印スプライト」
+                // として保存しておく（プレイヤー専用スプライトに
+                // 差し替えた後も、クールダウン中はこちらに戻す）
+                m_DefaultArrowSprite =
+                    m_AimArrowImage.sprite;
             }
         }
 
@@ -208,6 +348,29 @@ namespace Tanks.Complete
 
                 m_AimSlider.value =
                     m_MinLaunchForce;
+
+                // このSliderはあくまで表示専用（プレイヤーが直接
+                // クリック／ドラッグ操作するものではない）。
+                //
+                // Interactableかつ Transition = Color Tint のままだと、
+                // UIのフォーカス（EventSystemの選択状態）によって
+                // Selectableが自動でFill画像の色を書き換えてしまう
+                // ことがある（Target GraphicがFill＝矢印画像を
+                // 指している場合、Highlighted等の色に勝手に
+                // 変わってしまう）。
+                //
+                // 参加画面から遷移した直後は、参加画面側の入力操作の
+                // 影響でEventSystemの選択状態が残っていることがあり、
+                // 一番最初に生成される（＝Player1の）Sliderが
+                // 意図せずハイライトされ、矢印だけ色が変わって
+                // 見えるケースがある。
+                //
+                // 表示専用である以上、そもそも操作を受け付ける
+                // 必要が無いため、明示的に無効化しておく。
+                m_AimSlider.interactable = false;
+
+                m_AimSlider.transition =
+                    Selectable.Transition.None;
             }
 
 
@@ -342,6 +505,245 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ エイム矢印カラー設定（プレイヤーカラーに合わせる）
+        // =====================================================
+        //
+        // TankManager.Setup()から、そのタンクのプレイヤーカラー
+        // （タンク本体と同じ色）を渡してもらうためのAPI。
+        //
+        // 実際の色に一番近い基準色を持つ専用スプライトが割り当て
+        // られていればそちらを使う（色乗算に頼らないので、矢印
+        // スプライトが白色ベースでなくても正しい色で表示できる）。
+        // 対応スプライトが無ければ、従来通りcolorを乗算する
+        // 方式にフォールバックする。
+        //
+        // =====================================================
+
+        public void SetAimArrowColor(Color color)
+        {
+            m_AimArrowDefaultColor = color;
+
+            // 弾のトレイル／発光色にも使うため保存しておく
+            m_PlayerColor = color;
+
+            m_PlayerArrowSprite =
+                GetClosestArrowSprite(color);
+
+            // クールダウン中でなければ即座に反映
+            // （次のUpdateAimArrowVisual()でも整合するが、
+            // 　Setup直後の一瞬の色ズレを防ぐため即時反映しておく）
+            UpdateAimArrowVisual();
+        }
+
+
+        // =====================================================
+        // ■ 実際のプレイヤーカラーに一番近い矢印スプライト取得
+        // =====================================================
+        //
+        // プレイヤー番号ではなく、渡された実際の色と各基準色との
+        // 距離を比較し、一番近いスプライトを返す（未割り当ての
+        // スプライトは候補から除外）。
+        //
+        // =====================================================
+
+        private Sprite GetClosestArrowSprite(Color color)
+        {
+            Sprite best = null;
+
+            float bestDistanceSq = float.MaxValue;
+
+
+            if (m_ArrowSpriteP1Blue != null)
+            {
+                float distSq =
+                    ColorDistanceSquared(
+                        color, m_ReferenceColorP1Blue);
+
+                if (distSq < bestDistanceSq)
+                {
+                    bestDistanceSq = distSq;
+                    best = m_ArrowSpriteP1Blue;
+                }
+            }
+
+            if (m_ArrowSpriteP2Red != null)
+            {
+                float distSq =
+                    ColorDistanceSquared(
+                        color, m_ReferenceColorP2Red);
+
+                if (distSq < bestDistanceSq)
+                {
+                    bestDistanceSq = distSq;
+                    best = m_ArrowSpriteP2Red;
+                }
+            }
+
+            if (m_ArrowSpriteP3Green != null)
+            {
+                float distSq =
+                    ColorDistanceSquared(
+                        color, m_ReferenceColorP3Green);
+
+                if (distSq < bestDistanceSq)
+                {
+                    bestDistanceSq = distSq;
+                    best = m_ArrowSpriteP3Green;
+                }
+            }
+
+            if (m_ArrowSpriteP4Yellow != null)
+            {
+                float distSq =
+                    ColorDistanceSquared(
+                        color, m_ReferenceColorP4Yellow);
+
+                if (distSq < bestDistanceSq)
+                {
+                    bestDistanceSq = distSq;
+                    best = m_ArrowSpriteP4Yellow;
+                }
+            }
+
+            return best;
+        }
+
+
+        // =====================================================
+        // ■ 2色間の距離（RGB空間、平方距離）
+        // =====================================================
+        //
+        // 平方根を取る必要は無い（大小比較にしか使わないため）
+        //
+        // =====================================================
+
+        private static float ColorDistanceSquared(
+            Color a,
+            Color b)
+        {
+            float dr = a.r - b.r;
+            float dg = a.g - b.g;
+            float db = a.b - b.b;
+
+            return
+                dr * dr +
+                dg * dg +
+                db * db;
+        }
+
+
+        // =====================================================
+        // ■ エイム矢印の見た目更新（色・振動）
+        // =====================================================
+        //
+        // ・クールダウン中（まだ撃てない）は矢印を指定色にする
+        // ・フルチャージ中（発射待ち）は矢印を軽く振動させる
+        //
+        // =====================================================
+
+        private void UpdateAimArrowVisual()
+        {
+            if (m_AimArrowImage == null)
+            {
+                return;
+            }
+
+            // フルチャージに達し、発射待ちの状態か
+            bool isFullCharge =
+                m_IsCharging &&
+                m_CurrentLaunchForce >= m_MaxLaunchForce;
+
+            // クールダウン中か（発射直後でまだ再発射できない）
+            bool isCoolingDown =
+                !m_IsCharging &&
+                m_ShotCooldownTimer > 0f;
+
+
+            // ---------------------------------------------------
+            // スプライト・カラー
+            // ---------------------------------------------------
+            //
+            // クールダウン中：元の矢印スプライトにクールダウン色を
+            // 　タイントする（元スプライト×赤等は破綻しないため
+            // 　問題ない）。
+            //
+            // 通常時：プレイヤー専用スプライトがあればそれに差し
+            // 　替えてcolor=白（スプライト本来の色をそのまま出す）。
+            // 　専用スプライトが無ければ、従来通り元スプライト＋
+            // 　色タイントにフォールバックする。
+            //
+            // ---------------------------------------------------
+
+            if (isCoolingDown)
+            {
+                if (m_DefaultArrowSprite != null)
+                {
+                    m_AimArrowImage.sprite =
+                        m_DefaultArrowSprite;
+                }
+
+                m_AimArrowImage.color =
+                    m_CooldownColor;
+            }
+            else if (m_PlayerArrowSprite != null)
+            {
+                m_AimArrowImage.sprite =
+                    m_PlayerArrowSprite;
+
+                m_AimArrowImage.color =
+                    Color.white;
+            }
+            else
+            {
+                if (m_DefaultArrowSprite != null)
+                {
+                    m_AimArrowImage.sprite =
+                        m_DefaultArrowSprite;
+                }
+
+                m_AimArrowImage.color =
+                    m_AimArrowDefaultColor;
+            }
+
+            // ---------------------------------------------------
+            // 振動（フルチャージ中のみ）
+            // ---------------------------------------------------
+            //
+            // AimSliderは毎フレームvalueに応じてFillRectの位置を
+            // 自動で動かしている。ここでは「その本来の位置」に対して
+            // 振動オフセットを足し引きするだけにする（絶対座標を
+            // 直接書き換えると、Slider本来の動きと衝突してズレる）。
+            //
+            // 前フレームに加えたオフセットを一旦打ち消してから、
+            // 今フレームのオフセットを新しく加える。
+            //
+            // ---------------------------------------------------
+
+            m_AimArrowImage.rectTransform.localPosition -=
+                m_LastShakeOffset;
+
+            if (isFullCharge)
+            {
+                Vector3 shakeOffset =
+                    new Vector3(
+                        Random.Range(-1f, 1f),
+                        Random.Range(-1f, 1f),
+                        0f
+                    ) * m_FullChargeShakeAmount;
+
+                m_AimArrowImage.rectTransform.localPosition +=
+                    shakeOffset;
+
+                m_LastShakeOffset = shakeOffset;
+            }
+            else
+            {
+                m_LastShakeOffset = Vector3.zero;
+            }
+        }
+
+
+        // =====================================================
         // ■ プレイヤー操作更新
         // =====================================================
 
@@ -440,6 +842,8 @@ namespace Tanks.Complete
 
 
                 // 最大値制限
+                // （フルチャージになっても自動発射はしない。
+                // 　ここで上限に留まり、ボタンを離すまで待機する）
                 m_CurrentLaunchForce =
                     Mathf.Clamp(
                         m_CurrentLaunchForce,
@@ -456,17 +860,9 @@ namespace Tanks.Complete
                 }
 
 
-                // 最大チャージで自動発射
-                if (m_CurrentLaunchForce >=
-                    m_MaxLaunchForce)
-                {
-                    Fire();
-
-                    return;
-                }
-
-
-                // ボタン離した
+                // ボタンを離した瞬間に発射
+                // （フルチャージ状態でも自動発射せず、
+                // 　プレイヤー自身のタイミングに委ねる）
                 if (fireReleased)
                 {
                     Fire();
@@ -474,6 +870,13 @@ namespace Tanks.Complete
                     return;
                 }
             }
+
+
+            // =================================================
+            // エイム矢印の見た目更新
+            // =================================================
+
+            UpdateAimArrowVisual();
         }
 
 
@@ -536,6 +939,13 @@ namespace Tanks.Complete
                         m_CurrentLaunchForce;
                 }
             }
+
+
+            // =================================================
+            // エイム矢印の見た目更新
+            // =================================================
+
+            UpdateAimArrowVisual();
         }
 
 
@@ -615,6 +1025,12 @@ namespace Tanks.Complete
             if (explosionData != null)
             {
                  explosionData.SetOwner(gameObject);
+
+                // 弾のトレイル／発光をこのタンクの
+                // プレイヤーカラーに合わせる
+                explosionData.SetTrailColor(
+                    m_PlayerColor
+                );
 
                 explosionData.m_ExplosionForce =
                     m_ExplosionForce;

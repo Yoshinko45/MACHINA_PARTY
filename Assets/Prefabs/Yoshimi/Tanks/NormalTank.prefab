@@ -300,6 +300,13 @@ MonoBehaviour:
   m_Shell: {fileID: 5409530, guid: 008ecb1b70bec724fa2cd34255b0d8f8, type: 3}
   m_FireTransform: {fileID: 3692307143839706999}
   m_AimSlider: {fileID: 6541836295820567152}
+  m_AimArrowImage: {fileID: 5209079661193634241}
+  m_CooldownColor: {r: 1, g: 1, b: 1, a: 0.1764706}
+  m_FullChargeShakeAmount: 0.05
+  m_ArrowSpriteP1Blue: {fileID: 1258583810, guid: a7f795a5044b947aa81a57a339319526, type: 3}
+  m_ArrowSpriteP2Red: {fileID: 427261503, guid: 48fcaefda3f60410aac1f3b904885b45, type: 3}
+  m_ArrowSpriteP3Green: {fileID: 185787385, guid: ebf654de1e2c74bbfb0f4993dc27fefb, type: 3}
+  m_ArrowSpriteP4Yellow: {fileID: 21300000, guid: ab943d3d5ac38bb448fabe3cdc9516d1, type: 3}
   m_ShootingAudio: {fileID: 886106607033743846}
   m_ChargingClip: {fileID: 8300000, guid: c17f124fcdc0f5446a72f793898bd74b, type: 3}
   m_FireClip: {fileID: 8300000, guid: 672a9941361ad494a99fba36759eca80, type: 3}
@@ -608,6 +615,10 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: 98b57e52-1cab-4a72-8023-9b3bb4467642
     m_ActionName: 'GamePlay/Fire[/Keyboard/space,/Keyboard/enter,/Keyboard/rightCtrl,/Keyboard/numpad0]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 40ddd86e-dd82-408f-ab17-cb1be77b7fdd
+    m_ActionName: GamePlay/Look
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: GamePlay
@@ -682,7 +693,7 @@ RectTransform:
   m_Father: {fileID: 5607105384603381707}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 2.5}
   m_SizeDelta: {x: 0, y: 5}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -983,11 +994,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3088847576401942210, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3088847576401942210, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7471019981129515232, guid: 1d30ac653c80f4afeba76b72f7111a7f, type: 3}
       propertyPath: m_Pivot.x

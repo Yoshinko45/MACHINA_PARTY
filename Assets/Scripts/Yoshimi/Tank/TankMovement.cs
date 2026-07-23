@@ -139,6 +139,12 @@ namespace Tanks.Complete
         // trueならカメラ方向移動を使用
         private bool m_UsingGamepadScheme;
 
+        // 右スティックが一定以上倒れていて
+        // 向き入力として有効とみなされている状態か
+        // （Move()内で毎フレーム更新し、Turn()側で
+        // 　左スティック旋回と衝突しないよう参照する）
+        private bool m_GamepadLookActive;
+
         // =====================================================
         // ■ 爆風関連
         // =====================================================
@@ -284,6 +290,7 @@ namespace Tanks.Complete
             m_MovementInputValue = 0f;
             m_TurnInputValue = 0f;
             m_LookInputValue = Vector2.zero;
+            m_GamepadLookActive = false;
 
             // 爆風速度初期化
             m_ExplosionVelocity = Vector3.zero;
@@ -493,51 +500,62 @@ namespace Tanks.Complete
             // ゲームパッド操作
             // =================================================
             //
-            // 右スティックの方向へm_LookTurnSpeedの速さで
-            // 向きを合わせる（即座ではなく素早く追従、
-            // という程度の速さにして不自然な瞬間反転を防ぐ）。
-            // 移動は左スティック上下のみを使い、
-            // 常に「今向いている方向」基準で前後する。
-            // 実車の戦車のように、向きと関係ない方向へ
-            // 横移動することは無い（左スティック左右は不使用）。
+            // 基本はキーボード（WASD／矢印キー）と同じ
+            // 「タンク操作」方式にする。
+            // 　・左スティック上下 → 前後移動（このMove()内で処理）
+            // 　・左スティック左右 → 旋回（Turn()側で処理）
+            //
+            // 右スティックを一定以上（m_LookDeadzone）倒している間は、
+            // そちらの向きをm_LookTurnSpeedの速さで優先して向く
+            // （即座ではなく素早く追従、という程度の速さにして
+            // 　不自然な瞬間反転を防ぐ）。
+            // この間は左スティックの旋回と衝突しないよう
+            // m_GamepadLookActiveをtrueにし、Turn()側を無効化する。
             //
             // =================================================
 
-            if (m_UsingGamepadScheme &&
-                Camera.main != null)
+            if (m_UsingGamepadScheme)
             {
-                // カメラ前方向取得
-                Vector3 camForward =
-                    Camera.main.transform.forward;
+                // 右スティックが有効な倒し具合かどうか
+                // （Turn()側で左スティック旋回を無効化する判定にも使う）
+                m_GamepadLookActive =
+                    m_LookInputValue.sqrMagnitude >
+                    m_LookDeadzone * m_LookDeadzone;
 
-                // 上下成分を除去
-                camForward.y = 0f;
+                // =============================================
+                // 右スティックで向きを優先指定
+                // =============================================
 
-                // 正規化
-                camForward.Normalize();
-
-
-                // カメラ右方向取得
-                Vector3 camRight =
-                    Camera.main.transform.right;
-
-                // 上下成分除去
-                camRight.y = 0f;
-
-                // 正規化
-                camRight.Normalize();
-
-
-                // 右スティックの向き
-                Vector3 lookDirection =
-                    camForward * m_LookInputValue.y +
-                    camRight * m_LookInputValue.x;
-
-                // 一定以上倒れていればその方向へ向き直す
-                // （倒れていない間は今の向きを維持）
-                if (lookDirection.sqrMagnitude >
-                    m_LookDeadzone * m_LookDeadzone)
+                if (m_GamepadLookActive &&
+                    Camera.main != null)
                 {
+                    // カメラ前方向取得
+                    Vector3 camForward =
+                        Camera.main.transform.forward;
+
+                    // 上下成分を除去
+                    camForward.y = 0f;
+
+                    // 正規化
+                    camForward.Normalize();
+
+
+                    // カメラ右方向取得
+                    Vector3 camRight =
+                        Camera.main.transform.right;
+
+                    // 上下成分除去
+                    camRight.y = 0f;
+
+                    // 正規化
+                    camRight.Normalize();
+
+
+                    // 右スティックの向き
+                    Vector3 lookDirection =
+                        camForward * m_LookInputValue.y +
+                        camRight * m_LookInputValue.x;
+
                     // 向きたい方向
                     Quaternion targetRotation =
                         Quaternion.LookRotation(
@@ -555,6 +573,7 @@ namespace Tanks.Complete
 
 
                 // 今向いている方向へ前後移動
+                // （左右旋回はTurn()側で左スティック左右から処理する）
                 moveDirection =
                     transform.forward *
                     m_MovementInputValue;
@@ -675,11 +694,22 @@ namespace Tanks.Complete
         private void Turn()
         {
             // =================================================
-            // カメラ方向移動中は不要
+            // カメラ方向移動中（DirectControl）は不要
             // =================================================
 
-            if (m_UsingGamepadScheme ||
-                m_IsDirectControl)
+            if (m_IsDirectControl)
+            {
+                return;
+            }
+
+
+            // =================================================
+            // ゲームパッドで右スティックによる向き指定中は、
+            // 左スティックの旋回と衝突しないよう無効化する
+            // =================================================
+
+            if (m_UsingGamepadScheme &&
+                m_GamepadLookActive)
             {
                 return;
             }
@@ -687,6 +717,8 @@ namespace Tanks.Complete
 
             // =================================================
             // 通常タンク回転
+            // （キーボードの左右入力、または右スティック未使用中の
+            // 　ゲームパッド左スティック左右による旋回）
             // =================================================
 
             float turn =

@@ -52,6 +52,54 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ 視認性向上（トレイル・発光）
+        // =====================================================
+        //
+        // 弾のメッシュ自体は小さいままにしておき（当たり判定や
+        // タンクとの見た目のバランスを崩さないため）、飛んでいる
+        // 最中だけ目立つようにするための演出。
+        //
+        // TankShooting.Fire()から、撃ったプレイヤーの色で
+        // SetTrailColor()が呼ばれ、トレイル・発光の色が
+        // プレイヤーカラーに合わせて変わる（誰の弾か一目で
+        // わかるようにするため）。
+        //
+        // 数値はここで調整可能。実際に試遊しながら太さ・
+        // 明るさを詰めていってほしい。
+        //
+        // =====================================================
+
+        [Header("Visibility (Trail / Glow)")]
+
+        [Tooltip("弾に光の軌跡（トレイル）を付けるか")]
+        public bool m_UseTrail = true;
+
+        [Tooltip("トレイルの表示時間（秒）。長いほど尾が伸びる")]
+        public float m_TrailTime = 0.15f;
+
+        [Tooltip("トレイルの太さ（弾側）")]
+        public float m_TrailStartWidth = 0.45f;
+
+        [Tooltip("トレイルの太さ（末尾側）")]
+        public float m_TrailEndWidth = 0.05f;
+
+        [Tooltip("弾自体に発光（Point Light）を付けるか")]
+        public bool m_UseGlow = true;
+
+        [Tooltip("発光が届く範囲")]
+        public float m_GlowRange = 3f;
+
+        [Tooltip("発光の強さ")]
+        public float m_GlowIntensity = 3f;
+
+        // 実行時に追加するトレイル本体
+        private TrailRenderer m_TrailRenderer;
+
+        // 実行時に追加する発光用ライト
+        private Light m_GlowLight;
+
+
+        // =====================================================
         // ■ 発射者情報
         // =====================================================
 
@@ -78,6 +126,229 @@ namespace Tanks.Complete
         public void SetOwner(GameObject owner)
         {
             m_Owner = owner;
+        }
+
+
+        // =====================================================
+        // ■ Awake
+        // =====================================================
+
+        private void Awake()
+        {
+            SetupTrail();
+            SetupGlow();
+        }
+
+
+        // =====================================================
+        // ■ トレイル初期化
+        // =====================================================
+        //
+        // プレイヤーカラーが伝わる前（SetTrailColor呼び出し前）に
+        // 見えてしまっても不自然にならないよう、まずは白系の
+        // デフォルト色で用意しておく。
+        //
+        // =====================================================
+
+        private void SetupTrail()
+        {
+            if (!m_UseTrail)
+            {
+                return;
+            }
+
+            m_TrailRenderer =
+                gameObject.AddComponent<TrailRenderer>();
+
+            m_TrailRenderer.time =
+                m_TrailTime;
+
+            m_TrailRenderer.startWidth =
+                m_TrailStartWidth;
+
+            m_TrailRenderer.endWidth =
+                m_TrailEndWidth;
+
+            m_TrailRenderer.minVertexDistance = 0.05f;
+
+            m_TrailRenderer.shadowCastingMode =
+                UnityEngine.Rendering.ShadowCastingMode.Off;
+
+            m_TrailRenderer.receiveShadows = false;
+
+            m_TrailRenderer.textureMode =
+                LineTextureMode.Stretch;
+
+            Shader trailShader =
+                FindBestUnlitShader();
+
+            if (trailShader != null)
+            {
+                m_TrailRenderer.material =
+                    new Material(trailShader);
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "[ShellExplosion] トレイル用のシェーダーが" +
+                    "見つかりませんでした。トレイルの色が" +
+                    "正しく表示されない可能性があります。"
+                );
+            }
+
+            // プレイヤーカラーが伝わるまでのデフォルト色
+            ApplyTrailColor(Color.white);
+        }
+
+
+        // =====================================================
+        // ■ 発光ライト初期化
+        // =====================================================
+
+        private void SetupGlow()
+        {
+            if (!m_UseGlow)
+            {
+                return;
+            }
+
+            GameObject glowObject =
+                new GameObject("ShellGlow");
+
+            glowObject.transform.SetParent(
+                transform,
+                false
+            );
+
+            m_GlowLight =
+                glowObject.AddComponent<Light>();
+
+            m_GlowLight.type = LightType.Point;
+
+            m_GlowLight.range =
+                m_GlowRange;
+
+            m_GlowLight.intensity =
+                m_GlowIntensity;
+
+            m_GlowLight.shadows = LightShadows.None;
+
+            m_GlowLight.color = Color.white;
+        }
+
+
+        // =====================================================
+        // ■ トレイル・発光用シェーダー探索
+        // =====================================================
+        //
+        // URP環境でも確実に見えるように、優先順位を付けて
+        // 対応シェーダーを探す。
+        //
+        // =====================================================
+
+        private static Shader FindBestUnlitShader()
+        {
+            string[] candidates =
+            {
+                "Universal Render Pipeline/Particles/Unlit",
+                "Universal Render Pipeline/Unlit",
+                "Particles/Standard Unlit",
+                "Sprites/Default",
+                "Unlit/Color"
+            };
+
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                Shader shader =
+                    Shader.Find(candidates[i]);
+
+                if (shader != null)
+                {
+                    return shader;
+                }
+            }
+
+            return null;
+        }
+
+
+        // =====================================================
+        // ■ トレイル・発光カラー設定
+        // =====================================================
+        //
+        // TankShooting.Fire()から、発射したプレイヤーの色で
+        // 呼び出してもらうAPI。
+        //
+        // =====================================================
+
+        public void SetTrailColor(Color color)
+        {
+            ApplyTrailColor(color);
+
+            if (m_GlowLight != null)
+            {
+                m_GlowLight.color = color;
+            }
+        }
+
+
+        // =====================================================
+        // ■ トレイルへの色反映
+        // =====================================================
+
+        private void ApplyTrailColor(Color color)
+        {
+            if (m_TrailRenderer == null)
+            {
+                return;
+            }
+
+            // 発光っぽく見せるため、先端は白寄りに明るくし、
+            // 末尾に向かってプレイヤーカラー→透明へ落とす
+            Color brightHead =
+                Color.Lerp(color, Color.white, 0.5f);
+
+            Gradient gradient = new Gradient();
+
+            gradient.SetKeys(
+                new GradientColorKey[]
+                {
+                    new GradientColorKey(brightHead, 0f),
+                    new GradientColorKey(color, 1f)
+                },
+                new GradientAlphaKey[]
+                {
+                    new GradientAlphaKey(0.9f, 0f),
+                    new GradientAlphaKey(0f, 1f)
+                }
+            );
+
+            m_TrailRenderer.colorGradient = gradient;
+
+            if (m_TrailRenderer.material == null)
+            {
+                return;
+            }
+
+            // Gradientを反映しないシェーダーだった場合の保険として、
+            // マテリアル自体の色にも明るめの色を設定しておく
+            if (m_TrailRenderer.material.HasProperty(
+                    "_BaseColor"))
+            {
+                m_TrailRenderer.material.SetColor(
+                    "_BaseColor",
+                    brightHead
+                );
+            }
+
+            if (m_TrailRenderer.material.HasProperty(
+                    "_Color"))
+            {
+                m_TrailRenderer.material.SetColor(
+                    "_Color",
+                    brightHead
+                );
+            }
         }
 
 

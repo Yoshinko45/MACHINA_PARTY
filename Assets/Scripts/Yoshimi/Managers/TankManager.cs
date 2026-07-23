@@ -195,6 +195,11 @@ namespace Tanks.Complete
                     m_ComputerControlled;
 
                 m_Shooting.enabled = true;
+
+                // エイム矢印もタンク本体と同じプレイヤーカラーに合わせる
+                // （実際の色に一番近い専用スプライトがあれば
+                // 　そちらを優先して使う）
+                m_Shooting.SetAimArrowColor(m_PlayerColor);
             }
 
 

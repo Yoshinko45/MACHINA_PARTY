@@ -109,6 +109,13 @@ MonoBehaviour:
   m_Shell: {fileID: 5409530, guid: 008ecb1b70bec724fa2cd34255b0d8f8, type: 3}
   m_FireTransform: {fileID: 6122827292166773005}
   m_AimSlider: {fileID: 8894822749351694948}
+  m_AimArrowImage: {fileID: 3407858157073840051}
+  m_CooldownColor: {r: 1, g: 1, b: 1, a: 0.1764706}
+  m_FullChargeShakeAmount: 0.05
+  m_ArrowSpriteP1Blue: {fileID: 1258583810, guid: a7f795a5044b947aa81a57a339319526, type: 3}
+  m_ArrowSpriteP2Red: {fileID: 427261503, guid: 48fcaefda3f60410aac1f3b904885b45, type: 3}
+  m_ArrowSpriteP3Green: {fileID: 185787385, guid: ebf654de1e2c74bbfb0f4993dc27fefb, type: 3}
+  m_ArrowSpriteP4Yellow: {fileID: 21300000, guid: ab943d3d5ac38bb448fabe3cdc9516d1, type: 3}
   m_ShootingAudio: {fileID: 3767716125109797091}
   m_ChargingClip: {fileID: 8300000, guid: c17f124fcdc0f5446a72f793898bd74b, type: 3}
   m_FireClip: {fileID: 8300000, guid: 672a9941361ad494a99fba36759eca80, type: 3}
@@ -417,6 +424,10 @@ MonoBehaviour:
         m_CallState: 2
     m_ActionId: 98b57e52-1cab-4a72-8023-9b3bb4467642
     m_ActionName: 'GamePlay/Fire[/Keyboard/space,/Keyboard/enter,/Keyboard/rightCtrl,/Keyboard/numpad0]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 40ddd86e-dd82-408f-ab17-cb1be77b7fdd
+    m_ActionName: 'GamePlay/Look[/DualSenseGamepadHID/rightStick]'
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: GamePlay
