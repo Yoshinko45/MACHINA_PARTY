@@ -48437,15 +48437,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: df9eaac106fea424098d268d3a5d7956, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: df9eaac106fea424098d268d3a5d7956, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: df9eaac106fea424098d268d3a5d7956, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: df9eaac106fea424098d268d3a5d7956, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -89098,27 +89098,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.CarMovement
   rb: {fileID: 1886201975}
   m_PlayerNumber: 1
-  forwardAccel: 150
-  reverseAccel: 75
   maxSpeed: 35
-  turnStrength: 40
-  coastDeceleration: 0.5
+  accelResponse: 1
+  coastResponse: 0.5
+  brakeResponse: 1.5
+  reverseSpeedRatio: 0.6
+  overSpeedDecay: 3
+  downForce: 30
+  steerStrength: 35
   groundSpeedMultiplier: 0.5
-  driftSidewaysFriction: 0.5
-  driftTurnMultiplier: 1.5
+  driftSidewaysFriction: 0.3
+  driftMinSpeedRatio: 0.5
+  driftMaxSpeedRatio: 0.87
+  driftSteerTight: 2.1
+  driftSteerLoose: 0.5
+  driftSteerNeutral: 1
+  driftSteerRampSpeed: 3
+  hopHeight: 0.35
+  hopDuration: 0.25
   groundCheckDistance: 1.25
   groundMask:
     serializedVersion: 2
     m_Bits: 4294967295
   groundAlignSpeed: 25
   maxSlopeAngle: 80
-  maxUpwardSpeed: 1
+  groundAlignRayDistance: 2
   maxFallSpeed: 35
-  fallAcceleration: 70
-  fallAccelDelay: 0.1
   kartModel: {fileID: 786463350}
-  driftTiltAngle: 15
-  driftTiltSpeed: 5
+  driftTiltAngle: 0
   driftBodyAngle: 20
   driftBodyAngleSpeed: 8
   wheelParticles: {fileID: 1431485253}
@@ -89138,14 +89145,11 @@ MonoBehaviour:
   - 1.25
   - 1.5
   - 1.75
-  boostAccelMultipliers:
-  - 1.25
-  - 1.75
-  - 2.5
   boostDurations:
   - 1
   - 1.25
   - 1.5
+  boostAccelResponse: 2.5
   wheelParticleList:
   - {fileID: 336529936}
   - {fileID: 385038711}
