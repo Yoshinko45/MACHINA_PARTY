@@ -257,11 +257,16 @@ namespace Tanks.Complete
             // タンクカラー変更
             // =================================================
 
+            // ビルド時はUnityEditor名前空間が存在しないため、
+            // このデバッグログはエディタ実行時のみに限定する。
+            // （これを外すとPlayerビルド時にCS0234で失敗する）
+#if UNITY_EDITOR
             Debug.Log(
                 m_Instance.name +
                 "  IsPersistent = " +
                 UnityEditor.EditorUtility.IsPersistent(m_Instance)
             );
+#endif
 
             // TankColorという名前を含むマテリアルだけを
             // プレイヤーカラーに変更する。

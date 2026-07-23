@@ -567,6 +567,9 @@ namespace Tanks.Complete
             TankHealth health =
                 TankPreview.GetComponent<TankHealth>();
 
+            InputReader input =
+                TankPreview.GetComponent<InputReader>();
+
 
             //---------------------------------------------
             // ゲーム処理停止
@@ -575,6 +578,16 @@ namespace Tanks.Complete
             // プレビューなので入力や発射は不要
             move.enabled = false;
             shoot.enabled = false;
+
+            // プレビューは操作を受け付けないため、
+            // InputReaderも無効化しておく。
+            // （無効化しないと、Prefabに残ったままの
+            // 　ControlIndexの値でUpdate()が毎フレーム走り、
+            // 　「未対応の ControlIndex」警告が出続けてしまう）
+            if (input != null)
+            {
+                input.enabled = false;
+            }
 
 
             //---------------------------------------------

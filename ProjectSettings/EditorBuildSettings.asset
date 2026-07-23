@@ -4,6 +4,9 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/Yoshimi/TankBattleModeScene.unity
+    guid: 80aae60f011a85444bdb8e1ea090b0a7
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
