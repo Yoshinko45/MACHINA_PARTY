@@ -33,7 +33,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 1.55, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6950372259491231702}
@@ -231,6 +231,13 @@ MonoBehaviour:
   m_MaxDamage: 100
   m_ExplosionForce: 1000
   m_ExplosionRadius: 5
+  m_UseTrail: 1
+  m_TrailTime: 0.15
+  m_TrailStartWidth: 0.45
+  m_TrailEndWidth: 0.05
+  m_UseGlow: 1
+  m_GlowRange: 3
+  m_GlowIntensity: 3
 --- !u!114 &-927890215427519120
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -271,6 +278,18 @@ PrefabInstance:
     - target: {fileID: 195792, guid: 537afde59eeba4c82897def1dccfba0a, type: 3}
       propertyPath: m_Name
       value: CompleteShellExplosion
+      objectReference: {fileID: 0}
+    - target: {fileID: 486730, guid: 537afde59eeba4c82897def1dccfba0a, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 486730, guid: 537afde59eeba4c82897def1dccfba0a, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 486730, guid: 537afde59eeba4c82897def1dccfba0a, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 486730, guid: 537afde59eeba4c82897def1dccfba0a, type: 3}
       propertyPath: m_LocalPosition.x
