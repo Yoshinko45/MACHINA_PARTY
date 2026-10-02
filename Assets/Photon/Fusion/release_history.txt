@@ -326,8 +326,7 @@ This reverts commit 1c84d3a165af9ded26611121341f3e00e8443a91
 - Fixed: `NetworkPrefabTable` correctly awaits a synchronous load that follows an asynchronous one
 - Fixed: Client crashing on `InvalidOperationException: Cannot take items from an empty buffer.` (again)
 - Fixed: Parse Words greater than Word Count
-- Fixed: Scene info inconsistencies when `Network
-ne` is called immediately after starting a runner
+- Fixed: Scene info inconsistencies when `NetworkRunner.LoadScene` is called immediately after starting a runner
 - Fixed: `AssertException` when syncing `NetworkMecanimAnimator` without any bool parameters
 - Fixed: Failed to Forward Simulation Message to a Missing Connection
 - Fixed: Hardened ReadObjectDataIntoPtr against malformed packets

@@ -6,17 +6,25 @@ using UnityEngine.UI;
 
 public class GameManager : NetworkBehaviour
 {
-    public static GameManager Instance;
+    public static GameManager Instance { get; private set; }
 
-    [SerializeField] float startDelay = 3f;
-    [SerializeField] float endDelay = 3f;
-    [SerializeField] int roundsToWin = 5;
+    [SerializeField]
+    float startDelay = 3f;
+
+    [SerializeField]
+    float endDelay = 3f;
+
+    [SerializeField]
+    int roundsToWin = 5;
 
     [SerializeField]
     SpawnPoint[] tankSpawnPoints;
 
     [SerializeField]
     SpawnPoint[] raceSpawnPoints;
+
+    [SerializeField]
+    Text titleText;
 
     [Networked]
     int Round { get; set; }
@@ -27,9 +35,8 @@ public class GameManager : NetworkBehaviour
     [Networked]
     GameState State { get; set; }
 
-    [SerializeField] Text titleText;
-
-    TickTimer delay;
+    [Networked]
+    bool ReturningToRoom { get; set; }
 
     enum GameState
     {
@@ -39,91 +46,189 @@ public class GameManager : NetworkBehaviour
         RoundEnding
     }
 
+    // ==================================================
+    // Spawned
+    // ==================================================
+
     public override void Spawned()
     {
-        Debug.Log($"ObjectCount = {Runner.GetAllNetworkObjects().Count()}");
-        foreach (var obj in Runner.GetAllNetworkObjects())
-        {
-            Debug.Log($"{obj.Id} {obj.name}");
-        }
-
         Instance = this;
 
-        titleText = GameObject
-        .Find("TitleText")
-        .GetComponent<Text>();
+        Debug.Log(
+            $"[GameManager] Spawned " +
+            $"Objects=" +
+            $"{Runner.GetAllNetworkObjects().Count()}");
+
+        if (titleText == null)
+        {
+            GameObject obj =
+                GameObject.Find(
+                    "TitleText");
+
+            if (obj != null)
+            {
+                titleText =
+                    obj.GetComponent<Text>();
+            }
+        }
 
         if (HasStateAuthority)
         {
-            delay = TickTimer.CreateFromSeconds(Runner, 1f);
-            FindFirstObjectByType<SpawnManager>()
-                .SpawnAllPlayers();
-
             Round = 0;
-            State = GameState.Waiting;
 
-            BeginGame();
+            State =
+                GameState.Waiting;
+
+            ReturningToRoom = false;
         }
     }
 
-    public override void FixedUpdateNetwork()
+    public override void Despawned(
+        NetworkRunner runner,
+        bool hasState)
     {
-        if (!HasStateAuthority)
-            return;
-
-        switch (State)
-        {
-            case GameState.Waiting:
-                break;
-
-            case GameState.RoundStarting:
-                UpdateRoundStarting();
-                break;
-
-            case GameState.Playing:
-                UpdatePlaying();
-                break;
-
-            case GameState.RoundEnding:
-                UpdateRoundEnding();
-                break;
-        }
+        if (Instance == this)
+            Instance = null;
     }
+
+    // ==================================================
+    // Game Start
+    // ==================================================
 
     public void BeginGame()
     {
         if (!HasStateAuthority)
             return;
 
-        foreach (var player in Runner.ActivePlayers)
+        if (RoomState.Instance == null)
+            return;
+
+        if (!RoomState.Instance.GameStarted)
+            return;
+
+        if (State != GameState.Waiting)
+            return;
+
+        if (ReturningToRoom)
+            return;
+
+        Debug.Log(
+            "[GameManager] BeginGame");
+
+        foreach (var player in
+            Runner.ActivePlayers)
         {
             if (!Runner.TryGetPlayerObject(
                 player,
                 out var obj))
+            {
+                continue;
+            }
+
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null)
                 continue;
 
-            obj.GetComponent<NetworkPlayer>().Wins = 0;
+            networkPlayer.Wins = 0;
         }
 
         Round = 0;
 
-        StartRound();
+        StateTimer =
+            TickTimer.CreateFromSeconds(
+                Runner,
+                0.5f);
+
+        // 0.5秒後にStartRound
+        State =
+            GameState.Waiting;
     }
+
+    // ==================================================
+    // Network
+    // ==================================================
+
+    public override void FixedUpdateNetwork()
+    {
+        if (!HasStateAuthority)
+            return;
+
+        if (RoomState.Instance == null)
+            return;
+
+        // ゲーム終了後のRoom復帰待ち
+        if (ReturningToRoom)
+        {
+            if (StateTimer.Expired(Runner))
+            {
+                ReturnToRoom();
+            }
+
+            return;
+        }
+
+
+        // Room中はGameManagerを停止
+        if (!RoomState.Instance.GameStarted)
+            return;
+
+        switch (State)
+        {
+            case GameState.Waiting:
+
+                if (StateTimer.Expired(Runner))
+                {
+                    StartRound();
+                }
+
+                break;
+
+            case GameState.RoundStarting:
+
+                UpdateRoundStarting();
+
+                break;
+
+            case GameState.Playing:
+
+                UpdatePlaying();
+
+                break;
+
+            case GameState.RoundEnding:
+
+                UpdateRoundEnding();
+
+                break;
+        }
+    }
+
+    // ==================================================
+    // Round
+    // ==================================================
 
     void StartRound()
     {
+        if (!RoomState.Instance.GameStarted)
+            return;
+
         Round++;
 
         ResetPlayers();
 
-        State = GameState.RoundStarting;
+        State =
+            GameState.RoundStarting;
 
         StateTimer =
             TickTimer.CreateFromSeconds(
                 Runner,
                 startDelay);
 
-        RPC_ShowMessage($"ROUND {Round}");
+        RPC_ShowMessage(
+            $"ROUND {Round}");
     }
 
     void UpdateRoundStarting()
@@ -131,7 +236,8 @@ public class GameManager : NetworkBehaviour
         if (!StateTimer.Expired(Runner))
             return;
 
-        State = GameState.Playing;
+        State =
+            GameState.Playing;
 
         RPC_ShowMessage("");
     }
@@ -141,14 +247,16 @@ public class GameManager : NetworkBehaviour
         if (!OnePlayerLeft())
             return;
 
-        State = GameState.RoundEnding;
+        State =
+            GameState.RoundEnding;
 
         StateTimer =
             TickTimer.CreateFromSeconds(
                 Runner,
                 endDelay);
 
-        var winner = GetRoundWinner();
+        NetworkPlayer winner =
+            GetRoundWinner();
 
         if (winner != null)
         {
@@ -166,19 +274,21 @@ public class GameManager : NetworkBehaviour
         if (!StateTimer.Expired(Runner))
             return;
 
-        var gameWinner =
+        NetworkPlayer gameWinner =
             GetGameWinner();
 
         if (gameWinner != null)
         {
-            RPC_ShowGameWinner(gameWinner.PlayerName);
+            RPC_ShowGameWinner(
+                gameWinner.PlayerName);
+
+            // ★ ゲーム終了後5秒
+            ReturningToRoom = true;
 
             StateTimer =
                 TickTimer.CreateFromSeconds(
                     Runner,
                     5f);
-
-            Runner.LoadScene(SceneRef.FromIndex(1));
 
             return;
         }
@@ -186,23 +296,98 @@ public class GameManager : NetworkBehaviour
         StartRound();
     }
 
-    // ■ 生存者が1人以下か
+    // ==================================================
+    // Return To Room
+    // ==================================================
+
+    void ReturnToRoom()
+    {
+        if (!HasStateAuthority)
+            return;
+
+        Debug.Log(
+            "[GameManager] " +
+            "Returning to Room");
+
+        SpawnManager.Instance?
+            .ReturnPlayersToRoom();
+
+        // Game終了
+        RoomState.Instance.GameStarted =
+            false;
+
+        RoomState.Instance.VoteStarted =
+            false;
+
+        ReturningToRoom = false;
+
+        Round = 0;
+
+        State =
+            GameState.Waiting;
+
+        StateTimer = default;
+
+        // Ready / Voteをリセット
+        foreach (var player in
+            Runner.ActivePlayers)
+        {
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
+                continue;
+            }
+
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null)
+                continue;
+
+            networkPlayer.IsReady = false;
+            networkPlayer.HasVoted = false;
+            networkPlayer.Wins = 0;
+        }
+
+        RPC_ShowMessage("");
+    }
+
+    // ==================================================
+    // Players
+    // ==================================================
+
     bool OnePlayerLeft()
     {
         int alive = 0;
 
-        foreach (var player in Runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (!Runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
+                continue;
+            }
+
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null)
                 continue;
 
-            var vehicle =
-                obj.GetComponent<NetworkPlayer>().VehicleObject;
+            NetworkObject vehicle =
+                networkPlayer.VehicleObject;
 
             if (vehicle == null)
                 continue;
 
-            var health = vehicle.GetComponent<Tank_Health>();
+            Tank_Health health =
+                vehicle.GetComponent<
+                    Tank_Health>();
 
             if (health == null)
                 continue;
@@ -216,84 +401,132 @@ public class GameManager : NetworkBehaviour
         return alive <= 1;
     }
 
-    // ■ ラウンド勝者取得
     NetworkPlayer GetRoundWinner()
     {
-        foreach (var player in Runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (!Runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
                 continue;
+            }
 
-            var p = obj.GetComponent<NetworkPlayer>();
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
 
-            if (p.VehicleObject == null)
+            if (networkPlayer == null ||
+                networkPlayer.VehicleObject ==
+                null)
+            {
                 continue;
+            }
 
-            var health =
-                p.VehicleObject.GetComponent<Tank_Health>();
+            Tank_Health health =
+                networkPlayer.VehicleObject
+                    .GetComponent<
+                        Tank_Health>();
 
             if (health == null)
                 continue;
 
             if (!health.IsDead)
-                return p;
+                return networkPlayer;
         }
 
         return null;
     }
 
-    // ■ ゲーム勝者取得
     NetworkPlayer GetGameWinner()
     {
-        foreach (var player in Runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (!Runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
                 continue;
+            }
 
-            var p = obj.GetComponent<NetworkPlayer>();
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
 
-            if (p.Wins >= roundsToWin)
-                return p;
+            if (networkPlayer != null &&
+                networkPlayer.Wins >= roundsToWin)
+            {
+                return networkPlayer;
+            }
         }
 
         return null;
     }
-    
-    // ■ 全タンク初期化
+
+    // ==================================================
+    // Reset Players
+    // ==================================================
+
     void ResetPlayers()
     {
         int index = 0;
 
-        foreach (var player in Runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (!Runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
+                continue;
+            }
+
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null ||
+                networkPlayer.VehicleObject ==
+                null)
+            {
+                continue;
+            }
+
+            Transform spawn =
+                GetSpawn(index);
+
+            if (spawn == null)
                 continue;
 
-            var networkPlayer = obj.GetComponent<NetworkPlayer>();
+            networkPlayer.VehicleObject
+                .transform
+                .SetPositionAndRotation(
+                    spawn.position,
+                    spawn.rotation);
 
-            var vehicle = networkPlayer.VehicleObject;
-
-            if (vehicle == null)
-                continue;
-
-            var spawn = GetSpawn(index);
-
-            vehicle.transform.SetPositionAndRotation(
-                spawn.position,
-                spawn.rotation);
-
-            var rb = vehicle.GetComponent<Rigidbody>();
+            Rigidbody rb =
+                networkPlayer.VehicleObject
+                    .GetComponent<Rigidbody>();
 
             if (rb != null)
             {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                rb.linearVelocity =
+                    Vector3.zero;
+
+                rb.angularVelocity =
+                    Vector3.zero;
             }
 
-            var health = vehicle.GetComponent<Tank_Health>();
+            Tank_Health health =
+                networkPlayer.VehicleObject
+                    .GetComponent<Tank_Health>();
 
             if (health != null)
+            {
                 health.ResetTank();
+            }
 
             index++;
         }
@@ -301,30 +534,68 @@ public class GameManager : NetworkBehaviour
 
     Transform GetSpawn(int index)
     {
-        if (RoomState.Instance.CurrentMode == GameModes.Tank)
+        if (RoomState.Instance ==
+            null)
         {
+            return null;
+        }
+
+        if (RoomState.Instance.CurrentMode ==
+            GameModes.Tank)
+        {
+            if (tankSpawnPoints == null ||
+                tankSpawnPoints.Length == 0)
+            {
+                return transform;
+            }
+
             if (index >= tankSpawnPoints.Length)
                 index = 0;
 
-            return tankSpawnPoints[index].transform;
+            return tankSpawnPoints[index]
+                .transform;
+        }
+
+        if (raceSpawnPoints == null ||
+            raceSpawnPoints.Length == 0)
+        {
+            return transform;
         }
 
         if (index >= raceSpawnPoints.Length)
             index = 0;
 
-        return raceSpawnPoints[index].transform;
+        return raceSpawnPoints[index]
+            .transform;
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    void RPC_ShowMessage(string message)
+    // ==================================================
+    // UI
+    // ==================================================
+
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All)]
+    void RPC_ShowMessage(
+        string message)
     {
-        titleText.text = message;
+        if (titleText != null)
+        {
+            titleText.text =
+                message;
+        }
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    void RPC_ShowGameWinner(NetworkString<_16> winner)
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All)]
+    void RPC_ShowGameWinner(
+        NetworkString<_16> winner)
     {
-        titleText.text =
-            $"{winner} Wins the Game!";
+        if (titleText != null)
+        {
+            titleText.text =
+                $"{winner} Wins the Game!";
+        }
     }
 }
