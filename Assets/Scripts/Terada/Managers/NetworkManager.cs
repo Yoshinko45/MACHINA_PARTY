@@ -6,44 +6,36 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using static Unity.Collections.Unicode;
+using UnityEngine.SceneManagement;
 
 public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 {
-    public static NetworkManager Instance;
+    public static NetworkManager Instance { get; private set; }
 
     public NetworkRunner Runner { get; private set; }
 
     [SerializeField]
     NetworkRunner networkRunnerPrefab;
 
-    // -------------------------
-    // イベント
-    // -------------------------
+    [Header("Initial Room Scene")]
+    [SerializeField]
+    int roomSceneIndex = 1;
 
     public event Action<List<SessionInfo>> OnSessionListChanged;
-
     public event Action OnLobbyJoined;
 
     public event Action<PlayerRef> OnPlayerJoinedEvent;
-
     public event Action<PlayerRef> OnPlayerLeftEvent;
-
-    // -------------------------
-    // State
-    // -------------------------
 
     string currentRoom;
 
     bool isConnecting;
-
     bool isSelfShutdown;
 
     bool isReconnecting;
     int reconnectCount;
 
     const int maxReconnect = 5;
-
     const float timeoutSeconds = 10f;
 
     ConnectMode lastConnectMode;
@@ -51,13 +43,13 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     CancellationTokenSource connectCTS;
     CancellationTokenSource reconnectCTS;
 
-    // -------------------------
+    // ==================================================
     // Unity
-    // -------------------------
+    // ==================================================
 
     void Awake()
     {
-        if (Instance != null)
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
@@ -72,18 +64,20 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         connectCTS?.Cancel();
         reconnectCTS?.Cancel();
+
         reconnectCTS?.Dispose();
 
         await ShutdownRunnerAsync();
     }
 
-    // -------------------------
+    // ==================================================
     // Public
-    // -------------------------
+    // ==================================================
 
     public async void JoinLobby()
     {
-        Debug.Log("[NetworkManager] JoinLobby() called");
+        Debug.Log("[NetworkManager] JoinLobby");
+
         lastConnectMode = ConnectMode.Lobby;
 
         SetState(ConnectionState.ConnectingLobby);
@@ -93,7 +87,9 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public async void CreateRoom(string roomName)
     {
-        Debug.Log($"[NetworkManager] CreateRoom() called name={roomName}");
+        Debug.Log(
+            $"[NetworkManager] CreateRoom : {roomName}");
+
         currentRoom = roomName;
 
         lastConnectMode = ConnectMode.RoomHost;
@@ -105,6 +101,9 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public async void JoinRoom(string roomName)
     {
+        Debug.Log(
+            $"[NetworkManager] JoinRoom : {roomName}");
+
         currentRoom = roomName;
 
         lastConnectMode = ConnectMode.RoomClient;
@@ -114,48 +113,57 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         await ChangeConnectionAsync();
     }
 
-    // -------------------------
-    // Main Connect
-    // -------------------------
+    // ==================================================
+    // Connection
+    // ==================================================
 
     async Task ChangeConnectionAsync()
     {
         connectCTS?.Cancel();
 
-        connectCTS = new CancellationTokenSource();
+        connectCTS =
+            new CancellationTokenSource();
 
         await ShutdownRunnerAsync();
 
-        bool success = await ConnectAsync(connectCTS.Token);
+        bool success =
+            await ConnectAsync(
+                connectCTS.Token);
 
         if (!success)
-        {
             StartReconnect();
-        }
     }
 
     async Task<bool> ConnectAsync(
         CancellationToken token)
     {
-        Debug.Log("[NetworkManager] ConnectAsync() start");
         if (isConnecting)
-        {
-            Debug.LogWarning("[NetworkManager] Already connecting");
             return false;
-        }
+
         isConnecting = true;
+
+        Debug.Log(
+            $"[NetworkManager] ConnectAsync : " +
+            $"{lastConnectMode}");
 
         try
         {
-            NetworkRunner newRunner = Instantiate(networkRunnerPrefab);
+            NetworkRunner newRunner =
+                Instantiate(networkRunnerPrefab);
+
+            // RunnerもSceneをまたいで保持
+            DontDestroyOnLoad(
+                newRunner.gameObject);
+
             Runner = newRunner;
+
             newRunner.AddCallbacks(this);
 
             Task<StartGameResult> connectTask;
 
-            // -------------------------
+            // ==================================================
             // Lobby
-            // -------------------------
+            // ==================================================
 
             if (lastConnectMode ==
                 ConnectMode.Lobby)
@@ -164,52 +172,83 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
                     Runner.JoinSessionLobby(
                         SessionLobby.ClientServer);
             }
-
-            // -------------------------
-            // Room
-            // -------------------------
-
             else
             {
-                StartGameArgs args =
-                    new StartGameArgs();
+                NetworkSceneManagerDefault sceneManager =
+                    Runner.GetComponent<
+                        NetworkSceneManagerDefault>();
+
+                if (sceneManager == null)
+                {
+                    Debug.LogError(
+                        "[NetworkManager] " +
+                        "NetworkSceneManagerDefault is missing.");
+
+                    return false;
+                }
+
+                StartGameArgs args;
 
                 switch (lastConnectMode)
                 {
+                    // ==================================================
+                    // Host
+                    // ==================================================
+
                     case ConnectMode.RoomHost:
 
-                        args = new StartGameArgs()
+                        args = new StartGameArgs
                         {
-                            GameMode = GameMode.Host,
-                            SessionName = currentRoom,
+                            GameMode =
+                                GameMode.Host,
+
+                            SessionName =
+                                currentRoom,
+
                             PlayerCount = 4,
+
                             IsVisible = true,
+
                             IsOpen = true,
-                            Scene = SceneRef.FromIndex(1)
+
+                            SceneManager =
+                                sceneManager
                         };
-                        args.SceneManager = Runner.GetComponent<NetworkSceneManagerDefault>();
 
                         break;
 
+                    // ==================================================
+                    // Client
+                    // ==================================================
+
                     case ConnectMode.RoomClient:
 
-                        args = new StartGameArgs()
+                        args = new StartGameArgs
                         {
                             GameMode =
                                 GameMode.Client,
 
-                            SessionName = currentRoom
+                            SessionName =
+                                currentRoom,
+
+                            SceneManager =
+                                sceneManager
                         };
 
                         break;
+
+                    default:
+
+                        return false;
                 }
 
-                connectTask = Runner.StartGame(args);
+                connectTask =
+                    Runner.StartGame(args);
             }
 
-            // -------------------------
+            // ==================================================
             // Timeout
-            // -------------------------
+            // ==================================================
 
             Task timeoutTask =
                 Task.Delay(
@@ -222,67 +261,56 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
                     connectTask,
                     timeoutTask);
 
-            // timeout
             if (completed == timeoutTask)
             {
                 Debug.LogError(
-                    "Connection Timeout");
+                    "[NetworkManager] " +
+                    "Connection timeout.");
 
                 await newRunner.Shutdown();
 
                 newRunner.RemoveCallbacks(this);
 
-                if (Runner == newRunner) Runner = null;
+                if (Runner == newRunner)
+                    Runner = null;
 
-                Destroy(newRunner.gameObject);
+                Destroy(
+                    newRunner.gameObject);
 
                 return false;
             }
 
-            // after StartGame or JoinSessionLobby completed
             StartGameResult result =
                 await connectTask;
-            Debug.Log($"[NetworkManager] StartGameResult: Ok={result.Ok} Reason={result.ShutdownReason}");
 
-            Debug.Log($"SessionName = {Runner.SessionInfo?.Name}");
+            Debug.Log(
+                $"[NetworkManager] StartGameResult " +
+                $"Ok={result.Ok} " +
+                $"Reason={result.ShutdownReason}");
 
-            Debug.Log($"IsVisible = {Runner.SessionInfo?.IsVisible}");
-
-            Debug.Log($"IsOpen = {Runner.SessionInfo?.IsOpen}");
-            // failed
             if (!result.Ok)
             {
-                Debug.Log("[NetworkManager] Connect failed: " + result.ShutdownReason);
-                // cleanup...
-
                 newRunner.RemoveCallbacks(this);
 
                 if (Runner == newRunner)
-                {
                     Runner = null;
-                }
 
-                Destroy(newRunner.gameObject);
+                Destroy(
+                    newRunner.gameObject);
 
                 return false;
             }
 
-            // -------------------------
-            // Success
-            // -------------------------
-
-            Debug.Log("[NetworkManager] ConnectAsync success, mode=" + lastConnectMode);
-            Debug.Log($"CloudRegion = {Runner.SessionInfo?.Region}");
             reconnectCount = 0;
-
             isReconnecting = false;
+
+            // ==================================================
+            // Connected
+            // ==================================================
 
             switch (lastConnectMode)
             {
                 case ConnectMode.Lobby:
-
-                    Debug.Log(
-                        "Lobby Connected");
 
                     SetState(
                         ConnectionState.InLobby);
@@ -292,11 +320,21 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
                     break;
 
                 case ConnectMode.RoomHost:
+
+                    // Hostだけが最初のRoomSceneをロード
+                    await Runner.LoadScene(
+                        SceneRef.FromIndex(
+                            roomSceneIndex),
+                        LoadSceneMode.Additive);
+
+                    SetState(
+                        ConnectionState.InRoom);
+
+                    break;
+
                 case ConnectMode.RoomClient:
 
-                    Debug.Log(
-                        "Room Connected");
-
+                    // ClientはHostのScene状態に同期される
                     SetState(
                         ConnectionState.InRoom);
 
@@ -306,7 +344,10 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         catch (OperationCanceledException)
         {
             Debug.Log(
-                "[NetworkManager] ConnectAsync cancelled");
+                "[NetworkManager] " +
+                "Connect cancelled.");
+
+            return false;
         }
         catch (Exception e)
         {
@@ -322,9 +363,9 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         return true;
     }
 
-    // -------------------------
+    // ==================================================
     // Shutdown
-    // -------------------------
+    // ==================================================
 
     async Task ShutdownRunnerAsync()
     {
@@ -339,6 +380,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         NetworkRunner oldRunner = Runner;
 
         Runner = null;
+
         try
         {
             await oldRunner.Shutdown();
@@ -348,29 +390,33 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             Debug.LogWarning(e);
         }
 
-        Destroy(oldRunner.gameObject);
+        if (oldRunner != null)
+            Destroy(oldRunner.gameObject);
 
         await Task.Delay(500);
 
         isSelfShutdown = false;
     }
 
-    // -------------------------
+    // ==================================================
     // Reconnect
-    // -------------------------
+    // ==================================================
 
     async void StartReconnect()
     {
-        if (isReconnecting) return;
+        if (isReconnecting)
+            return;
 
         isReconnecting = true;
 
         reconnectCTS?.Cancel();
         reconnectCTS?.Dispose();
 
-        reconnectCTS = new CancellationTokenSource();
+        reconnectCTS =
+            new CancellationTokenSource();
 
-        SetState(ConnectionState.Reconnecting);
+        SetState(
+            ConnectionState.Reconnecting);
 
         try
         {
@@ -380,22 +426,29 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
                 float waitTime =
                     Mathf.Min(
-                        2f * Mathf.Pow(
-                            2f, reconnectCount - 1),
+                        2f *
+                        Mathf.Pow(
+                            2f,
+                            reconnectCount - 1),
                         30f);
 
-                Debug.Log($"Reconnect Wait: {waitTime}");
-
-                await Task.Delay(TimeSpan.FromSeconds(waitTime), reconnectCTS.Token);
+                await Task.Delay(
+                    TimeSpan.FromSeconds(
+                        waitTime),
+                    reconnectCTS.Token);
 
                 connectCTS?.Cancel();
                 connectCTS?.Dispose();
 
-                connectCTS = new CancellationTokenSource();
+                connectCTS =
+                    new CancellationTokenSource();
 
-                if (Runner != null) await ShutdownRunnerAsync();
+                if (Runner != null)
+                    await ShutdownRunnerAsync();
 
-                bool success = await ConnectAsync(connectCTS.Token);
+                bool success =
+                    await ConnectAsync(
+                        connectCTS.Token);
 
                 if (success)
                 {
@@ -404,11 +457,14 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
                 }
             }
 
-            SetState(ConnectionState.Failed);
+            SetState(
+                ConnectionState.Failed);
         }
         catch (OperationCanceledException)
         {
-            Debug.Log("Reconnect Canceled");
+            Debug.Log(
+                "[NetworkManager] " +
+                "Reconnect cancelled.");
         }
         finally
         {
@@ -416,30 +472,28 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
-    // -------------------------
+    // ==================================================
     // State
-    // -------------------------
+    // ==================================================
 
-    void SetState(ConnectionState state)
+    void SetState(
+        ConnectionState state)
     {
-        ConnectionManager.Instance
-            .SetState(state);
+        if (ConnectionManager.Instance != null)
+        {
+            ConnectionManager.Instance.SetState(
+                state);
+        }
     }
 
-    // -------------------------
-    // Fusion Callback
-    // -------------------------
+    // ==================================================
+    // Fusion callbacks
+    // ==================================================
 
     public void OnSessionListUpdated(
         NetworkRunner runner,
         List<SessionInfo> sessionList)
     {
-        Debug.Log($"[NetworkManager] OnSessionListUpdated: sessions={sessionList?.Count ?? 0}");
-        if (sessionList != null)
-        {
-            foreach (var s in sessionList)
-                Debug.Log($"[NetworkManager] Session: Name={s.Name} Players={s.PlayerCount}/{s.MaxPlayers} Open={s.IsOpen}");
-        }
         OnSessionListChanged?.Invoke(
             sessionList);
     }
@@ -448,15 +502,153 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         NetworkRunner runner,
         PlayerRef player)
     {
-        OnPlayerJoinedEvent?.Invoke(player);
+        Debug.Log(
+            $"[NetworkManager] " +
+            $"PlayerJoined {player}");
+
+        OnPlayerJoinedEvent?.Invoke(
+            player);
     }
 
     public void OnPlayerLeft(
         NetworkRunner runner,
         PlayerRef player)
     {
-        Debug.Log($"OnPlayerLeft {player}");
-        OnPlayerLeftEvent?.Invoke(player);
+        Debug.Log(
+            $"[NetworkManager] " +
+            $"PlayerLeft {player}");
+
+        OnPlayerLeftEvent?.Invoke(
+            player);
+    }
+
+    public void OnSceneLoadDone(
+        NetworkRunner runner)
+    {
+        Debug.Log(
+            $"[NetworkManager] " +
+            $"SceneLoadDone " +
+            $"Scene={runner.SimulationUnityScene.name}");
+
+        foreach (var obj in
+            runner.GetAllNetworkObjects())
+        {
+            Debug.Log(
+                $"NetworkObject " +
+                $"Id={obj.Id} " +
+                $"Name={obj.name} " +
+                $"Scene={obj.gameObject.scene.name}");
+        }
+    }
+
+    public void OnSceneLoadStart(
+        NetworkRunner runner)
+    {
+        Debug.Log(
+            "[NetworkManager] SceneLoadStart");
+    }
+
+    // ==================================================
+    // Input
+    // ==================================================
+
+    void INetworkRunnerCallbacks.OnInput(
+        NetworkRunner runner,
+        NetworkInput input)
+    {
+        var data =
+            new PlayerInputData();
+
+        if (InputManager.Instance != null)
+        {
+            data.Throttle =
+                InputManager.Instance.Move.y;
+
+            data.Steering =
+                InputManager.Instance.Move.x;
+
+            Camera mainCamera =
+                Camera.main;
+
+            if (mainCamera != null)
+            {
+                data.CameraForward =
+                    mainCamera.transform.forward;
+
+                data.CameraRight =
+                    mainCamera.transform.right;
+            }
+
+            data.Buttons.Set(
+                NetworkInputButtons.Jump,
+                InputManager.Instance.Jump);
+
+            data.Buttons.Set(
+                NetworkInputButtons.Fire,
+                InputManager.Instance.Fire);
+        }
+
+        input.Set(data);
+    }
+
+    // ==================================================
+    // Empty callbacks
+    // ==================================================
+
+    void INetworkRunnerCallbacks.OnInputMissing(
+        NetworkRunner runner,
+        PlayerRef player,
+        NetworkInput input)
+    {
+    }
+
+    void INetworkRunnerCallbacks.OnConnectedToServer(
+        NetworkRunner runner)
+    {
+        Debug.Log(
+            $"Connected To Server. " +
+            $"GameMode={runner.GameMode}");
+    }
+
+    void INetworkRunnerCallbacks.OnConnectRequest(
+        NetworkRunner runner,
+        NetworkRunnerCallbackArgs.ConnectRequest request,
+        byte[] token)
+    {
+    }
+
+    void INetworkRunnerCallbacks.OnUserSimulationMessage(
+        NetworkRunner runner,
+        SimulationMessagePtr message)
+    {
+    }
+
+    void INetworkRunnerCallbacks.OnCustomAuthenticationResponse(
+        NetworkRunner runner,
+        Dictionary<string, object> data)
+    {
+    }
+
+    void INetworkRunnerCallbacks.OnHostMigration(
+        NetworkRunner runner,
+        HostMigrationToken hostMigrationToken)
+    {
+    }
+
+    void INetworkRunnerCallbacks.OnReliableDataReceived(
+        NetworkRunner runner,
+        PlayerRef player,
+        ReliableKey key,
+        ArraySegment<byte> data)
+    {
+    }
+
+    void INetworkRunnerCallbacks.OnReliableDataProgress(
+        NetworkRunner runner,
+        PlayerRef player,
+        ReliableKey key,
+        float progress)
+    {
     }
 
     void INetworkRunnerCallbacks.OnShutdown(
@@ -464,181 +656,69 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         ShutdownReason shutdownReason)
     {
         Debug.Log(
-            $"Shutdown: {shutdownReason}");
+            $"Shutdown : {shutdownReason}");
 
-        if (shutdownReason == ShutdownReason.Ok)
+        if (shutdownReason ==
+            ShutdownReason.Ok)
+        {
             return;
+        }
 
-        if (isSelfShutdown || isReconnecting)
+        if (isSelfShutdown ||
+            isReconnecting)
+        {
             return;
+        }
 
         StartReconnect();
     }
 
-    void INetworkRunnerCallbacks
-        .OnDisconnectedFromServer(
+    void INetworkRunnerCallbacks.OnDisconnectedFromServer(
         NetworkRunner runner,
         NetDisconnectReason reason)
     {
         Debug.LogWarning(
-            $"Disconnected: {reason}");
+            $"Disconnected : {reason}");
 
-        if (isSelfShutdown || isReconnecting)
+        if (isSelfShutdown ||
+            isReconnecting)
+        {
             return;
+        }
 
         StartReconnect();
     }
 
-    void INetworkRunnerCallbacks
-        .OnConnectFailed(
+    void INetworkRunnerCallbacks.OnConnectFailed(
         NetworkRunner runner,
         NetAddress remoteAddress,
         NetConnectFailedReason reason)
     {
         Debug.LogError(
-            $"Connect Failed: {reason}");
+            $"Connect Failed : {reason}");
 
-        if (isSelfShutdown || isReconnecting)
+        if (isSelfShutdown ||
+            isReconnecting)
+        {
             return;
+        }
 
         StartReconnect();
     }
 
-    // -------------------------
-    // Input
-    // -------------------------
-
-    void INetworkRunnerCallbacks.OnInput(
+    void INetworkRunnerCallbacks.OnObjectExitAOI(
         NetworkRunner runner,
-        NetworkInput input)
+        NetworkObject obj,
+        PlayerRef player)
     {
-        var data = new PlayerInputData();
-
-        if (InputManager.Instance != null)
-        {
-            data.Throttle = InputManager.Instance.Move.y;
-            data.Steering = InputManager.Instance.Move.x;
-
-            Camera mainCamera = Camera.main;
-
-            if (mainCamera != null)
-            {
-                data.CameraForward = mainCamera.transform.forward;
-                data.CameraRight = mainCamera.transform.right;
-            }
-
-            data.Buttons.Set(
-                NetworkInputButtons.Jump,
-                InputManager.Instance.Jump);
-
-            // タンクショット用.
-            if (InputManager.Instance.Fire)
-            {
-                data.Buttons.Set(
-                    NetworkInputButtons.Fire,
-                    true);
-            }
-
-            // 旧バージョンのTankMove用（CharacterControlerベースでバグり散らかしたのでなし）.
-            //data.Move = InputManager.Instance.Move;
-        }
-
-        input.Set(data);
     }
 
-    // -------------------------
-    // Empty Callback
-    // -------------------------
-
-    void INetworkRunnerCallbacks.OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
-
-    void INetworkRunnerCallbacks.OnConnectedToServer(NetworkRunner runner) 
+    void INetworkRunnerCallbacks.OnObjectEnterAOI(
+        NetworkRunner runner,
+        NetworkObject obj,
+        PlayerRef player)
     {
-        Debug.Log(
-        $"Connected To Server. GameMode={runner.GameMode}");
     }
-
-    void INetworkRunnerCallbacks.OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
-
-    void INetworkRunnerCallbacks.OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-
-    void INetworkRunnerCallbacks.OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
-
-    void INetworkRunnerCallbacks.OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
-
-    void INetworkRunnerCallbacks.OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
-
-    void INetworkRunnerCallbacks.OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-
-    void INetworkRunnerCallbacks.OnSceneLoadDone(NetworkRunner runner)
-    {
-        Debug.Log("NetworkObjects");
-
-        foreach (var obj in runner.GetAllNetworkObjects())
-        {
-            Debug.Log($"{obj.Id} {obj.name}");
-        }
-
-        Debug.Log("=== SceneLoadDone ===");
-
-        if (!runner.IsServer) return;
-
-        foreach (var player in runner.ActivePlayers)
-        {
-            Debug.Log($"Player {player}");
-
-            Debug.Log(runner.TryGetPlayerObject(player, out var obj));
-
-            if (obj != null)
-            {
-                Debug.Log(obj);
-                Debug.Log(obj.IsValid);
-                Debug.Log(obj.gameObject.scene.name);
-            }
-
-            //if (!runner.TryGetPlayerObject(player, out var obj))
-            //    continue;
-
-            var netPlayer = obj.GetComponent<NetworkPlayer>();
-
-            netPlayer.SpawnVehicle(RoomState.Instance.CurrentMode);
-        }
-
-        Debug.Log("=== Dynamic Objects ===");
-
-        foreach (var obj in runner.GetAllNetworkObjects())
-        {
-            Debug.Log(
-                $"{obj.Id} {obj.name} " +
-                $"Scene={obj.gameObject.scene.name} " +
-                $"Valid={obj.IsValid}");
-        }
-    }
-
-    void INetworkRunnerCallbacks.OnSceneLoadStart(NetworkRunner runner) 
-    {
-        Debug.Log("=== OnSceneLoadStart ===");
-
-        foreach (var player in runner.ActivePlayers)
-        {
-            Debug.Log(
-                runner.TryGetPlayerObject(player, out _));
-        }
-
-        Debug.Log("=== Dynamic Objects ===");
-
-        foreach (var obj in runner.GetAllNetworkObjects())
-        {
-            Debug.Log(
-                $"{obj.Id} {obj.name} " +
-                $"Scene={obj.gameObject.scene.name} " +
-                $"Valid={obj.IsValid}");
-        }
-    }
-
-    void INetworkRunnerCallbacks.OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
-
-    void INetworkRunnerCallbacks.OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
 }
 
 public enum ConnectMode

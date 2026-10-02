@@ -1,3 +1,4 @@
+using Tanks.Complete;
 using UnityEngine;
 
 public class VoteButton : MonoBehaviour

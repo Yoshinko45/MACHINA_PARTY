@@ -1,21 +1,45 @@
 using Fusion;
 using Tanks.Complete;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class RoomManager : NetworkBehaviour
 {
-    public static RoomManager Instance;
+    public static RoomManager Instance { get; private set; }
 
-    [SerializeField] GameObject voteCanvas;
+    [SerializeField]
+    GameObject voteCanvas;
 
     [Networked]
     public bool Voting { get; set; }
+
+    // ==================================================
+    // Unity
+    // ==================================================
 
     void Awake()
     {
         Instance = this;
     }
+
+    public override void Spawned()
+    {
+        Instance = this;
+
+        Debug.Log(
+            "[RoomManager] Spawned");
+    }
+
+    public override void Despawned(
+        NetworkRunner runner,
+        bool hasState)
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
+    // ==================================================
+    // Network
+    // ==================================================
 
     public override void FixedUpdateNetwork()
     {
@@ -31,17 +55,28 @@ public class RoomManager : NetworkBehaviour
         FinishVote();
     }
 
+    // ==================================================
+    // Ready
+    // ==================================================
+
     public bool AllReady()
     {
-        var runner = Runner;
-
-        foreach (var player in runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (!runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
                 return false;
+            }
 
-            var networkPlayer =
-                obj.GetComponent<NetworkPlayer>();
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null)
+                return false;
 
             if (!networkPlayer.IsReady)
                 return false;
@@ -50,17 +85,61 @@ public class RoomManager : NetworkBehaviour
         return true;
     }
 
+    // ==================================================
+    // Vote
+    // ==================================================
+
+    public void BeginVote()
+    {
+        if (!HasStateAuthority)
+            return;
+
+        if (Voting)
+            return;
+
+        Voting = true;
+
+        foreach (var player in
+            Runner.ActivePlayers)
+        {
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
+                continue;
+            }
+
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null)
+                continue;
+
+            networkPlayer.HasVoted = false;
+        }
+
+        RPC_ShowVoteUI(true);
+    }
+
     bool AllVoted()
     {
-        var runner = Runner;
-
-        foreach (var player in runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (!runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
+            {
                 return false;
+            }
 
-            var networkPlayer =
-                obj.GetComponent<NetworkPlayer>();
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
+
+            if (networkPlayer == null)
+                return false;
 
             if (!networkPlayer.HasVoted)
                 return false;
@@ -69,75 +148,92 @@ public class RoomManager : NetworkBehaviour
         return true;
     }
 
-    public void BeginVote()
+    void FinishVote()
     {
         if (!HasStateAuthority)
             return;
 
-        Voting = true;
+        int tankVotes = 0;
+        int raceVotes = 0;
 
-        foreach (var player in Runner.ActivePlayers)
+        foreach (var player in
+            Runner.ActivePlayers)
         {
-            if (Runner.TryGetPlayerObject(player, out var obj))
+            if (!Runner.TryGetPlayerObject(
+                player,
+                out var obj))
             {
-                var p = obj.GetComponent<NetworkPlayer>();
-
-                p.HasVoted = false;
+                continue;
             }
-        }
 
-        RPC_ShowVoteUI(true);
-    }
+            NetworkPlayer networkPlayer =
+                obj.GetComponent<
+                    NetworkPlayer>();
 
-    void FinishVote()
-    {
-        Voting = false;
+            if (networkPlayer == null)
+                continue;
 
-        int tank = 0;
-        int race = 0;
-
-        foreach (var player in Runner.ActivePlayers)
-        {
-            Runner.TryGetPlayerObject(player, out var obj);
-
-            var p = obj.GetComponent<NetworkPlayer>();
-
-            if (p.Vote == GameModes.Tank)
-                tank++;
+            if (networkPlayer.Vote ==
+                GameModes.Tank)
+            {
+                tankVotes++;
+            }
             else
-                race++;
+            {
+                raceVotes++;
+            }
         }
 
         GameModes result =
-            tank >= race
-            ? GameModes.Tank
-            : GameModes.Race;
+            tankVotes >= raceVotes
+                ? GameModes.Tank
+                : GameModes.Race;
 
-        RoomState.Instance.CurrentMode = result;
+        // ==================================================
+        // RoomState
+        // ==================================================
+
+        if (RoomState.Instance == null)
+        {
+            Debug.LogError(
+                "[RoomManager] " +
+                "RoomState is null.");
+
+            return;
+        }
+
+        RoomState.Instance.CurrentMode =
+            result;
+
+        RoomState.Instance.VoteStarted =
+            false;
+
+        // Åö SceneëJà⁄Ç≈ÇÕÇ»Ç≠ÉQÅ[ÉÄäJén
+        RoomState.Instance.GameStarted =
+            true;
+
+        Voting = false;
 
         RPC_ShowVoteUI(false);
 
-        foreach (var player in Runner.ActivePlayers)
-        {
-            Debug.Log($"=== Before LoadScene {player} ===");
+        Debug.Log(
+            $"[RoomManager] " +
+            $"Vote finished : {result}");
 
-            if (Runner.TryGetPlayerObject(player, out var obj))
-            {
-                Debug.Log($"Id={obj.Id}");
-                Debug.Log($"Valid={obj.IsValid}");
-                Debug.Log($"Scene={obj.gameObject.scene.name}");
-            }
-            else
-            {
-                Debug.Log("PlayerObject NOT FOUND");
-            }
-        }
-        // index2(GameScene)
-        NetworkManager.Instance.Runner.LoadScene(SceneRef.FromIndex(2));
+        // Åö VehicleÇGameStageÇ÷à⁄ìÆ
+        SpawnManager.Instance?
+            .StartGame();
     }
 
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    void RPC_ShowVoteUI(bool show)
+    // ==================================================
+    // UI
+    // ==================================================
+
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All)]
+    void RPC_ShowVoteUI(
+        bool show)
     {
         if (voteCanvas != null)
             voteCanvas.SetActive(show);

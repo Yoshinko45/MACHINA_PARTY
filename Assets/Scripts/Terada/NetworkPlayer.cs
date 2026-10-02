@@ -2,280 +2,495 @@ using Fusion;
 using Tanks.Complete;
 using UnityEngine;
 
-// プレイヤーの同期データ管理クラス.
 public class NetworkPlayer : NetworkBehaviour
 {
-    // プレイヤー名.
-    [Networked] public NetworkString<_16> PlayerName { get; set; }
+    [Networked]
+    public NetworkString<_16> PlayerName { get; set; }
 
-    // Room内でのプレイヤーごとの状態（全員Readyでゲームスタートできる）.
     [Networked, OnChangedRender(nameof(OnReadyChanged))]
     public bool IsReady { get; set; }
 
+    [Networked, OnChangedRender(nameof(OnVehicleChanged))]
     public NetworkObject VehicleObject { get; set; }
 
-    [Networked] public VehicleType TankVehicleType { get; set; }
-    [Networked] public VehicleType RaceVehicleType { get; set; }
+    [Networked]
+    public VehicleType TankVehicleType { get; set; }
 
-    [Networked] public bool HasVoted { get; set; }
-    [Networked] public GameModes Vote { get; set; }
+    [Networked]
+    public VehicleType RaceVehicleType { get; set; }
 
-    [SerializeField] float interactDistance = 5f;
+    [Networked]
+    public bool HasVoted { get; set; }
 
-    [Networked] public int Wins { get; set; }
+    [Networked]
+    public GameModes Vote { get; set; }
 
-    // ローカルのプレイヤー取得用.
+    [Networked]
+    public int Wins { get; set; }
+
+    [SerializeField]
+    float interactDistance = 5f;
+
     public static NetworkPlayer LocalPlayer;
 
-    //private NetworkCharacterController charactorController;
-    private CameraFollow cam;
+    CameraFollow cam;
 
-    // 直前の入力状態保存用.
-    private NetworkButtons previousButtons;
+    NetworkButtons previousButtons;
 
-    // プレイヤー生成時の処理.
+    // ==================================================
+    // Spawned
+    // ==================================================
+
     public override void Spawned()
     {
-        //charactorController = GetComponent<NetworkCharacterController>();
-        cam = Camera.main.GetComponent<CameraFollow>();
-
-        if (Object.HasStateAuthority)
-        {
-            RPC_SetName("Host_" + Random.Range(10, 99));
-
-            HasVoted = false;
-            IsReady = false;
-
-            // ルームに入ったらデフォルトで最初の車両を登録.
-            TankVehicleType = VehicleType.NormalTank;
-            RaceVehicleType = VehicleType.RaceCar;
-        }
+        Debug.Log(
+            $"[NetworkPlayer] Spawned " +
+            $"Player={Object.InputAuthority} " +
+            $"StateAuthority={Object.StateAuthority}");
 
         if (Object.HasInputAuthority)
         {
             LocalPlayer = this;
-            
-            if (VehicleObject!= null)
-            {
-                cam.SetTarget(VehicleObject.transform);
-            }
 
-            RPC_SetName("Player_" + Random.Range(100, 999));
+            RPC_SetName(
+                "Player_" +
+                Random.Range(100, 999));
 
             PlayerListManager.Instance?.Refresh();
         }
 
-        UpdateCameraTarget();
+        if (Object.HasStateAuthority)
+        {
+            TankVehicleType =
+                VehicleType.NormalTank;
 
+            RaceVehicleType =
+                VehicleType.RaceCar;
+
+            HasVoted = false;
+            IsReady = false;
+            Wins = 0;
+        }
+
+        UpdateCameraTarget();
     }
 
-    // ネットワーク更新ごとの処理.
+    public override void Despawned(
+        NetworkRunner runner,
+        bool hasState)
+    {
+        if (LocalPlayer == this)
+            LocalPlayer = null;
+    }
+
+    // ==================================================
+    // Initial Vehicle
+    // ==================================================
+
+    /// <summary>
+    /// Roomに入ったときにVehicleを生成する。
+    /// </summary>
+    public void SpawnInitialVehicle()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (VehicleObject != null &&
+            VehicleObject.IsValid)
+        {
+            return;
+        }
+
+        // 最初はTankを生成
+        SpawnVehicleForMode(
+            GameModes.Tank);
+    }
+
+    // ==================================================
+    // Vehicle Spawn
+    // ==================================================
+
+    public void SpawnVehicleForMode(
+        GameModes mode)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (VehicleObject != null &&
+            VehicleObject.IsValid)
+        {
+            return;
+        }
+
+        VehicleType type =
+            GetVehicle(mode);
+
+        NetworkPrefabRef prefab =
+            VehicleDatabase.Instance
+                .GetPrefab(type);
+
+        if (!prefab.IsValid)
+        {
+            Debug.LogError(
+                $"[NetworkPlayer] " +
+                $"Invalid Vehicle Prefab : {type}");
+
+            return;
+        }
+
+        NetworkObject vehicle =
+            Runner.Spawn(
+                prefab,
+                Vector3.zero,
+                Quaternion.identity,
+                Object.InputAuthority);
+
+        if (vehicle == null)
+        {
+            Debug.LogError(
+                "[NetworkPlayer] " +
+                "Vehicle Spawn failed.");
+
+            return;
+        }
+
+        // Sceneに依存しない
+        Runner.MakeDontDestroyOnLoad(
+            vehicle.gameObject);
+
+        VehicleObject = vehicle;
+
+        Debug.Log(
+            $"[NetworkPlayer] " +
+            $"Vehicle spawned " +
+            $"Type={type} " +
+            $"Id={vehicle.Id}");
+    }
+
+    public void SpawnVehicle(
+        GameModes mode)
+    {
+        SpawnVehicleForMode(mode);
+    }
+
+    // ==================================================
+    // Vehicle Despawn
+    // ==================================================
+
+    public void DespawnVehicle()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (VehicleObject == null)
+            return;
+
+        if (VehicleObject.IsValid)
+        {
+            Runner.Despawn(
+                VehicleObject);
+        }
+
+        VehicleObject = null;
+    }
+
+    // ==================================================
+    // Input
+    // ==================================================
+
     public override void FixedUpdateNetwork()
     {
-        // ホストでなければ処理しない.
         if (!HasStateAuthority)
             return;
-        // 入力処理.
-        if (!GetInput(out PlayerInputData data))
+
+        if (!GetInput(
+            out PlayerInputData data))
+        {
+            return;
+        }
+
+        if (VehicleObject == null)
             return;
 
-        var attackvehicle = VehicleObject
-            ?.GetComponent<IAttackVehicle>();
+        IAttackVehicle attackVehicle =
+            VehicleObject.GetComponent<
+                IAttackVehicle>();
 
-        // 攻撃車両の入力処理.
-        if (attackvehicle != null)
+        if (attackVehicle == null)
+            return;
+
+        NetworkButtons pressed =
+            data.Buttons.GetPressed(
+                previousButtons);
+
+        NetworkButtons released =
+            data.Buttons.GetReleased(
+                previousButtons);
+
+        if (pressed.IsSet(
+            NetworkInputButtons.Fire))
         {
-            var pressed = data.Buttons.GetPressed(previousButtons);
-            var released = data.Buttons.GetReleased(previousButtons);
-
-            if (pressed.IsSet(NetworkInputButtons.Fire))
-            {
-                attackvehicle.BeginCharge();
-            }
-            if (released.IsSet(NetworkInputButtons.Fire))
-            {
-                attackvehicle.ReleaseCharge();
-            }
-
-            previousButtons = data.Buttons;
+            attackVehicle.BeginCharge();
         }
+
+        if (released.IsSet(
+            NetworkInputButtons.Fire))
+        {
+            attackVehicle.ReleaseCharge();
+        }
+
+        previousButtons =
+            data.Buttons;
     }
 
-    private void Update()
+    // ==================================================
+    // Update
+    // ==================================================
+
+    void Update()
     {
         if (!Object.HasInputAuthority)
             return;
 
-        if (InputManager.Instance.ConsumeInteractPressed())
+        if (InputManager.Instance != null &&
+            InputManager.Instance
+                .ConsumeInteractPressed())
         {
-            Debug.Log("IInteract Pressed");
             TryInteract();
         }
+
+        UpdateCameraTarget();
     }
 
-    void OnReadyChanged()
-    {
-        PlayerListManager.Instance?.Refresh();
-    }
+    // ==================================================
+    // Vehicle
+    // ==================================================
 
-    void TryInteract()
-    {
-        if (VehicleObject == null)
-            return;
-
-        Vector3 origin = VehicleObject.transform.position + Vector3.up;
-        Vector3 dir = VehicleObject.transform.forward;
-
-        Debug.DrawRay(origin, dir * interactDistance, Color.red, 5f);
-
-        if (Physics.Raycast(origin, dir, out RaycastHit hit, interactDistance))
-        {
-            Debug.Log("Hit : " + hit.collider.name);
-
-            var interactable =
-                hit.collider.GetComponentInParent<IInteractable>();
-
-            if (interactable != null)
-            {
-                Debug.Log("Interact!");
-
-                interactable.Interact(this);
-            }
-        }
-        else
-        {
-            Debug.Log("Nothing Hit");
-        }
-    }
-
-    public VehicleType GetVehicle(GameModes mode)
+    public VehicleType GetVehicle(
+        GameModes mode)
     {
         return mode == GameModes.Tank
             ? TankVehicleType
             : RaceVehicleType;
     }
 
-    public void SpawnVehicle(GameModes mode)
+    void ChangeCurrentVehicle(
+        GameModes gameMode)
     {
-        Debug.Log($"Mode = {mode}");
         if (!Object.HasStateAuthority)
             return;
 
-        var type = GetVehicle(mode);
+        Vector3 spawnPosition =
+            Vector3.zero;
 
-        var prefab =
-            VehicleDatabase.Instance.GetPrefab(type);
+        Quaternion spawnRotation =
+            Quaternion.identity;
 
-        VehicleObject = Runner.Spawn(
-            prefab,
-            Vector3.zero,
-            Quaternion.identity,
-            Object.InputAuthority
-        );
+        if (VehicleObject != null &&
+            VehicleObject.IsValid)
+        {
+            spawnPosition =
+                VehicleObject.transform.position;
+
+            spawnRotation =
+                VehicleObject.transform.rotation;
+
+            Runner.Despawn(
+                VehicleObject);
+
+            VehicleObject = null;
+        }
+
+        VehicleType type =
+            GetVehicle(gameMode);
+
+        NetworkPrefabRef prefab =
+            VehicleDatabase.Instance
+                .GetPrefab(type);
+
+        if (!prefab.IsValid)
+        {
+            Debug.LogError(
+                $"[NetworkPlayer] " +
+                $"Invalid Vehicle Prefab : {type}");
+
+            return;
+        }
+
+        NetworkObject vehicle =
+            Runner.Spawn(
+                prefab,
+                spawnPosition,
+                spawnRotation,
+                Object.InputAuthority);
+
+        if (vehicle == null)
+        {
+            Debug.LogError(
+                "[NetworkPlayer] " +
+                "Vehicle replacement failed.");
+
+            return;
+        }
+
+        Runner.MakeDontDestroyOnLoad(
+            vehicle.gameObject);
+
+        VehicleObject = vehicle;
+    }
+
+    public void SetVehicle(
+        NetworkObject vehicle)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        VehicleObject = vehicle;
+    }
+
+    // ==================================================
+    // Camera
+    // ==================================================
+
+    void UpdateCameraTarget()
+    {
+        if (!Object.HasInputAuthority)
+            return;
+
+        if (VehicleObject == null)
+            return;
+
+        if (cam == null)
+        {
+            cam =
+                Camera.main?
+                    .GetComponent<CameraFollow>();
+        }
+
+        if (cam == null)
+            return;
+
+        cam.SetTarget(
+            VehicleObject.transform);
+    }
+
+    // ==================================================
+    // Interact
+    // ==================================================
+
+    void TryInteract()
+    {
+        if (VehicleObject == null)
+            return;
+
+        Vector3 origin =
+            VehicleObject.transform.position +
+            Vector3.up;
+
+        Vector3 direction =
+            VehicleObject.transform.forward;
+
+        if (Physics.Raycast(
+            origin,
+            direction,
+            out RaycastHit hit,
+            interactDistance))
+        {
+            IInteractable interactable =
+                hit.collider
+                    .GetComponentInParent<
+                        IInteractable>();
+
+            if (interactable != null)
+            {
+                interactable.Interact(this);
+            }
+        }
+    }
+
+    // ==================================================
+    // Network callbacks
+    // ==================================================
+
+    void OnReadyChanged()
+    {
+        PlayerListManager.Instance?.Refresh();
     }
 
     void OnVehicleChanged()
     {
         UpdateCameraTarget();
 
-        if (VehicleObject != null)
+        if (VehicleObject == null)
+            return;
+
+        Tank_Vehicle tankVehicle =
+            VehicleObject.GetComponent<
+                Tank_Vehicle>();
+
+        if (tankVehicle != null)
         {
-            var tankVehicle = VehicleObject.GetComponent<Tank_Vehicle>();
-
-            if (tankVehicle != null)
-                TankAimUI.Instance?.SetVehicleShot(tankVehicle);
-
-            //cam.SetTarget(tankVehicle.Move.transform);
-
+            TankAimUI.Instance?
+                .SetVehicleShot(
+                    tankVehicle);
         }
-
     }
 
-    // ゲームモードに合わせて車両を変更.
-    // ゲーム開始時に使う.
-    void ChangeCurrentVehicle(GameModes gameMode)
-    {
-        Vector3 spawnPos = Vector3.zero;
+    // ==================================================
+    // RPC
+    // ==================================================
 
-        Debug.Log($"[ChangeCurrentVehicle] mode={gameMode}");
-
-        if (VehicleObject != null)
-        {
-            Debug.Log("old vehicle exists");
-            spawnPos = VehicleObject.transform.position;
-            spawnPos.y = 0f;
-            Runner.Despawn(VehicleObject);
-        }
-
-        VehicleType type = GetVehicle(gameMode);
-
-        var prefab =
-            VehicleDatabase.Instance.GetPrefab(type);
-
-        VehicleObject = Runner.Spawn(
-            prefab,
-            spawnPos,
-            Quaternion.identity,
-            Object.InputAuthority);
-    }
-
-    public void SetVehicle(NetworkObject vehicle)
-    {
-        VehicleObject = vehicle;
-    }
-
-    void UpdateCameraTarget()
-    {
-        if (!Object.HasInputAuthority) return;
-
-        if (VehicleObject == null) return;
-
-        if (cam == null)
-            cam = Camera.main?.GetComponent<CameraFollow>();
-
-        if (cam == null) return;
-
-        cam.SetTarget(VehicleObject.transform);
-    }
-
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_SetName(string name)
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority)]
+    public void RPC_SetName(
+        string name)
     {
         PlayerName = name;
     }
 
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_Ready(bool ready)
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority)]
+    public void RPC_Ready(
+        bool ready)
     {
         IsReady = ready;
     }
 
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_Vote(GameModes mode)
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority)]
+    public void RPC_Vote(
+        GameModes mode)
     {
         Vote = mode;
         HasVoted = true;
     }
 
-    /// <summary>
-    /// 車両変更用関数.
-    /// </summary>
-    /// <param name="gameMode"></param>
-    /// <param name="type"></param>
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_ChangeVehicle(GameModes gameMode, VehicleType type)
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority)]
+    public void RPC_ChangeVehicle(
+        GameModes gameMode,
+        VehicleType type)
     {
         switch (gameMode)
         {
             case GameModes.Tank:
+
                 TankVehicleType = type;
+
                 break;
+
             case GameModes.Race:
+
                 RaceVehicleType = type;
+
                 break;
         }
 
-        ChangeCurrentVehicle(gameMode);
+        ChangeCurrentVehicle(
+            gameMode);
     }
-
 }

@@ -739,6 +739,7 @@ GameObject:
   - component: {fileID: 1081926461}
   - component: {fileID: 1081926460}
   - component: {fileID: 1081926463}
+  - component: {fileID: 1081926464}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -864,6 +865,85 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &1081926464
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1081926459}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f81d306644047b40bebe6dd4fe2065f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TitleSceneCleanup
+  titleCamera: {fileID: 1081926461}
+  titleCanvas: {fileID: 1186920797}
+--- !u!1001 &1168617128
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 444432912170651767, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_Name
+      value: SpawnManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 844472165812279859, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: SortKey
+      value: 2495809198
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1195808002563758376, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4436498893090999505, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
+      propertyPath: roomSpawnPoints.Array.size
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 94c9a59443352544a91141fa806e06ac, type: 3}
 --- !u!1 &1186920797
 GameObject:
   m_ObjectHideFlags: 0
@@ -1920,3 +2000,4 @@ SceneRoots:
   - {fileID: 2144493567}
   - {fileID: 3808627546317283049}
   - {fileID: 242609707}
+  - {fileID: 1168617128}
