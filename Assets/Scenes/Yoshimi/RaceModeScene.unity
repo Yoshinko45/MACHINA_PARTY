@@ -49290,6 +49290,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1593636382}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!115 &932228827
+MonoScript:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  serializedVersion: 7
+  m_DefaultReferences: {}
+  m_Icon: {fileID: 0}
+  m_Type: 0
+  m_ExecutionOrder: 0
+  m_ClassName: RaceStartSequence
+  m_Namespace: Tanks.Complete
+  m_AssemblyName: Assembly-CSharp
 --- !u!1 &942770828
 GameObject:
   m_ObjectHideFlags: 0
@@ -65276,6 +65291,7 @@ RectTransform:
   m_Children:
   - {fileID: 1550939641}
   - {fileID: 1395694031}
+  - {fileID: 1618937070}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -72870,6 +72886,102 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4153591976275997870, guid: f679227769a543240a446c66acbf0f7b, type: 3}
   m_PrefabInstance: {fileID: 1598779170}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1618937069
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1618937070}
+  - component: {fileID: 1618937071}
+  m_Layer: 5
+  m_Name: Minimap
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1618937070
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618937069}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1159244491}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: -40, y: 250}
+  m_SizeDelta: {x: 360, y: 360}
+  m_Pivot: {x: 1, y: 0}
+--- !u!114 &1618937071
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618937069}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac86705a40354d24589c2b72bf524c21, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.RaceMinimap
+  m_CourseRoot: {fileID: 1593636382}
+  m_ExcludedTags:
+  - Ground
+  m_ExcludedNames:
+  - Fence
+  m_ExcludedRoots: []
+  m_IncludedRoots: []
+  m_IncludedLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_MinNormalY: 0.5
+  m_MaxColliderHeight: 0
+  m_Resolution: 384
+  m_WorldPadding: 8
+  m_RaysPerFrame: 8000
+  m_RayHeightMargin: 30
+  m_KeepConnectedToCheckpoints: 1
+  m_ConnectGapPixels: 2
+  m_RemoveThinPixels: 1
+  m_FitToCourse: 1
+  m_LogBreakdown: 1
+  m_BreakdownDepth: 1
+  m_CustomMapTexture: {fileID: 0}
+  m_CustomWorldMin: {x: 0, y: 0}
+  m_CustomWorldMax: {x: 0, y: 0}
+  m_FillColor: {r: 0.08, g: 0.1, b: 0.14, a: 0.6}
+  m_OutlineColor: {r: 1, g: 1, b: 1, a: 0.95}
+  m_OutlinePixels: 3
+  m_GapClosePixels: 1
+  m_SmoothPasses: 1
+  m_MapRotation: 0
+  m_Padding: {x: 16, y: 16}
+  m_PanelColor: {r: 0, g: 0, b: 0, a: 0}
+  m_IconSize: 22
+  m_FocusIconSize: 30
+  m_IconRingColor: {r: 1, g: 1, b: 1, a: 1}
+  m_FocusRingColor: {r: 1, g: 0.9, b: 0.2, a: 1}
+  m_ShowHeadingArrow: 1
+  m_FallbackColors:
+  - {r: 1, g: 0.25, b: 0.25, a: 1}
+  - {r: 0.3, g: 0.55, b: 1, a: 1}
+  - {r: 0.35, g: 0.9, b: 0.4, a: 1}
+  - {r: 1, g: 0.85, b: 0.25, a: 1}
+  m_FocusTarget: {fileID: 0}
+  m_ShowStartMarker: 1
+  m_StartMarkerSize: 18
+  m_SnapStartToRoad: 1
+  m_RefreshInterval: 0.5
 --- !u!1 &1641990801
 GameObject:
   m_ObjectHideFlags: 0
@@ -89029,7 +89141,7 @@ Transform:
   m_GameObject: {fileID: 1886201972}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -175, y: 1, z: -40}
+  m_LocalPosition: {x: -183, y: 1, z: -27.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -95376,6 +95488,120 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 5.077508, y: 4.1718836, z: 4.817547}
   m_Center: {x: 0.58563733, y: 2.0075626, z: 0.38429976}
+--- !u!1 &2135933525
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2135933527}
+  - component: {fileID: 2135933526}
+  m_Layer: 0
+  m_Name: RaceStartSequence
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2135933526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2135933525}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 932228827}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Tanks.Complete.RaceStartSequence
+  m_PlayOnStart: 1
+  m_FadeInDuration: 0.6
+  m_PlayCameraIntro: 1
+  m_IntroDuration: 2.4
+  m_HoldAfterIntro: 1.6
+  m_CountdownFrom: 3
+  m_CountInterval: 1
+  m_GoDuration: 1.2
+  m_IntroStartAngle: -40
+  m_IntroStartDistance: 0.55
+  m_IntroStartHeight: 0.12
+  m_IntroStartLookHeight: 0.8
+  m_IntroCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0.5
+      outSlope: 0.5
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_ShowSignal: 1
+  m_SignalPosition: 0.5
+  m_Font: {fileID: 0}
+  m_NumberColor: {r: 1, g: 0.78, b: 0.1, a: 1}
+  m_GoColor: {r: 1, g: 0.62, b: 0.05, a: 1}
+  m_OutlineColor: {r: 1, g: 1, b: 1, a: 1}
+  m_OutlineWidth: 0.3
+  m_NumberSize: 240
+  m_NumberTilt: 6
+  m_NumberHeight: 0.08
+  m_CanvasSortingOrder: 500
+  m_FadeInHud: 1
+  m_HudComponentNames:
+  - LapUI
+  - RankUI
+  - RaceMinimap
+  m_ExtraHudObjects: []
+  m_HudFadeDuration: 0.5
+  m_PlaySounds: 1
+  m_Volume: 0.7
+  m_CountdownClip: {fileID: 0}
+  m_GoClip: {fileID: 0}
+  m_GoFovKick: 8
+  m_GoFovKickDuration: 0.8
+  m_GoSpeedLines: 1
+  m_AllowSkip: 1
+  m_SkipKey: 2
+  m_SkipWithGamepadStart: 1
+  m_OnCountdownStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  m_OnRaceStarted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!4 &2135933527
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2135933525}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2140362286
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -100499,3 +100725,4 @@ SceneRoots:
   - {fileID: 2056913438}
   - {fileID: 1159244491}
   - {fileID: 1897309908}
+  - {fileID: 2135933527}
