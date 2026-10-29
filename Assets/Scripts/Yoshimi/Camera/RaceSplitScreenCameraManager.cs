@@ -8,7 +8,12 @@ namespace Tanks.Complete
     //
     // ・プレイヤー人数に応じてカメラ生成
     // ・画面分割レイアウト設定
+    //     1人＝全画面／2人＝左右（または上下）／3人＝2×2で右下を空ける（または上1つ＋下2つ）／4人＝2×2
     // ・各カメラへ追跡対象を設定
+    // ・どのカメラにも映らない空き枠（3人の時の右下など）の範囲と色を、RaceGameManager に教える
+    //     （塗りつぶすのは、表示側の RaceHud。スクリプトでカメラを作ると、Unity 6.2 の
+    //       URP の不具合で UI の上に重なってしまうため、カメラでは塗らない）
+    // ・2人以上の時は、Cキーで全員のカメラが同時に反転しないようにする
     // ・オンライン時は1画面表示
     //
     public class RaceSplitScreenCameraManager : MonoBehaviour
@@ -21,6 +26,17 @@ namespace Tanks.Complete
         {
             Vertical,   // 左右分割
             Horizontal  // 上下分割
+        }
+
+
+        // =====================================================
+        // ■ 3人プレイ時の画面分割方式
+        // =====================================================
+
+        public enum ThreePlayerLayout
+        {
+            QuadWithEmptySlot,  // 2×2に分けて、右下を空ける（全員同じ大きさ。空き枠はミニマップなどに使える）
+            TopWide             // 上に大きく1つ、下に小さく2つ（1人目だけ画面が大きい）
         }
  
  
@@ -50,9 +66,78 @@ namespace Tanks.Complete
         // 2人プレイ時の分割方式
         public TwoPlayerLayout m_TwoPlayerLayout =
             TwoPlayerLayout.Vertical;
- 
+
+        // 3人プレイ時の分割方式
+        public ThreePlayerLayout m_ThreePlayerLayout =
+            ThreePlayerLayout.QuadWithEmptySlot;
+
         // オフライン最大人数
         public int m_MaxOfflinePlayers = 4;
+
+
+        // =====================================================
+        // ■ 空き枠の塗りつぶし
+        // =====================================================
+
+        [Header("Empty Area")]
+
+        [Tooltip("どのカメラにも映らない部分（3人の時の右下など）を、下の色で塗りつぶす" +
+            "（塗るのは表示側の RaceHud。ミニマップは、この上に置かれる）。" +
+            "OFFだと、その部分に、シーンに残っているカメラの絵（車など）が映ることがある")]
+        public bool m_FillEmptyArea = true;
+
+        // 空き枠の色
+        public Color m_EmptyAreaColor =
+            new Color(0.04f, 0.05f, 0.09f, 1f);
+
+
+        // =====================================================
+        // ■ 外から見える状態
+        // =====================================================
+
+        // Setup で決まった、使っているカメラの数
+        private int m_ActiveCameraCount;
+
+        // どのカメラにも映らない空き枠（無ければ幅0）
+        private Rect m_EmptyArea;
+
+        /// <summary>Setup で使うことにした、カメラ（プレイヤー）の数</summary>
+        public int ActiveCameraCount
+        {
+            get { return m_ActiveCameraCount; }
+        }
+
+        /// <summary>
+        /// どのカメラにも映らない空き枠があるか
+        /// （3人でQuadWithEmptySlotの時の右下など）。
+        /// </summary>
+        public bool HasEmptyArea
+        {
+            get { return m_EmptyArea.width > 0f && m_EmptyArea.height > 0f; }
+        }
+
+        /// <summary>
+        /// 空き枠の範囲（画面全体を 0〜1 とした割合）。空き枠が無ければ幅・高さが0。
+        /// ミニマップなどを、この中に置くのに使う。
+        /// </summary>
+        public Rect EmptyArea
+        {
+            get { return m_EmptyArea; }
+        }
+
+        /// <summary>
+        /// 空き枠を塗りつぶす範囲と色を求める。
+        /// 空き枠が無い時、または「Fill Empty Area」がOFFの時は false（塗らない）。
+        /// </summary>
+        /// <param name="area">塗る範囲（画面全体を 0〜1 とした割合）</param>
+        /// <param name="color">塗る色</param>
+        public bool TryGetEmptyAreaFill(out Rect area, out Color color)
+        {
+            area = m_EmptyArea;
+            color = m_EmptyAreaColor;
+
+            return m_FillEmptyArea && HasEmptyArea;
+        }
  
  
         // =====================================================
@@ -109,8 +194,11 @@ namespace Tanks.Complete
  
             Rect[] viewports =
                 GetViewports(cameraCount);
- 
- 
+
+            m_ActiveCameraCount = cameraCount;
+            m_EmptyArea = GetEmptyArea(cameraCount);
+
+
             // =================================================
             // カメラ設定
             // =================================================
@@ -151,7 +239,13 @@ namespace Tanks.Complete
                 cameraFollow.SetViewport(
                     viewports[i]
                 );
- 
+
+                // Cキーでの反転は、1人プレイの時だけ有効にする。
+                // 2人以上だと、誰かがCキーを押すと全員のカメラが反転してしまうため。
+                // （各プレイヤーの後方確認ボタンは、その人のカメラだけを反転する）
+                cameraFollow.m_UseReverseKey =
+                    cameraCount <= 1;
+
                 // 追跡対象設定
                 cameraFollow.SetTarget(
                     targets[i]
@@ -330,6 +424,29 @@ namespace Tanks.Complete
  
  
         // =====================================================
+        // ■ 空き枠の範囲
+        // =====================================================
+        //
+        // どのカメラにも映らない部分。
+        // 今は「3人で、2×2に分けて右下を空ける」時だけ。
+        //
+        // =====================================================
+
+        private Rect GetEmptyArea(int cameraCount)
+        {
+            if (cameraCount == 3 &&
+                m_ThreePlayerLayout ==
+                ThreePlayerLayout.QuadWithEmptySlot)
+            {
+                return new Rect(0.5f, 0f, 0.5f, 0.5f);
+            }
+
+            // 空き枠なし
+            return new Rect(0f, 0f, 0f, 0f);
+        }
+
+
+        // =====================================================
         // ■ ビューポート取得
         // =====================================================
         //
@@ -390,14 +507,32 @@ namespace Tanks.Complete
  
             else if (cameraCount == 3)
             {
-                viewports[0] =
-                    new Rect(0f, 0.5f, 1f, 0.5f);
- 
-                viewports[1] =
-                    new Rect(0f, 0f, 0.5f, 0.5f);
- 
-                viewports[2] =
-                    new Rect(0.5f, 0f, 0.5f, 0.5f);
+                // 上に大きく1つ、下に小さく2つ
+                if (m_ThreePlayerLayout ==
+                    ThreePlayerLayout.TopWide)
+                {
+                    viewports[0] =
+                        new Rect(0f, 0.5f, 1f, 0.5f);
+
+                    viewports[1] =
+                        new Rect(0f, 0f, 0.5f, 0.5f);
+
+                    viewports[2] =
+                        new Rect(0.5f, 0f, 0.5f, 0.5f);
+                }
+
+                // 2×2に分けて、右下を空ける
+                else
+                {
+                    viewports[0] =
+                        new Rect(0f, 0.5f, 0.5f, 0.5f);
+
+                    viewports[1] =
+                        new Rect(0.5f, 0.5f, 0.5f, 0.5f);
+
+                    viewports[2] =
+                        new Rect(0f, 0f, 0.5f, 0.5f);
+                }
             }
  
  

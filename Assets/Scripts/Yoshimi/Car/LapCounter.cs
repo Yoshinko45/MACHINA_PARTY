@@ -3,10 +3,16 @@ using UnityEngine;
 namespace Tanks.Complete
 {
     /// <summary>
-    /// 周回（ラップ）とチェックポイントの通過状況を管理するクラス。
-    /// ・最初の1周目はZ座標が一定以上になるまでゴール通過を無効に。
-    /// ・チェックポイントは順番通りに通過した場合のみカウント。
-    /// ・すべてのチェックポイントを通過した後にゴールを通過するとラップが進む。
+    /// 周回（ラップ）とチェックポイントの通過状況を管理するクラス。車1台に1つ付ける。
+    ///
+    /// 数え方のルール（実際の数え方は LapProgress に書いてある）
+    /// ・チェックポイントは、1番から順番に通った時だけ数える。
+    /// ・全部のチェックポイントを通った後に、ゴールを通ると1周になる。
+    ///   スタート直後や、同じゴールを続けて通っても、周回は増えない。
+    /// ・規定の周回数（maxLaps）のゴールを通ったら「ゴール完了」（IsFinished）。
+    ///   その後の通過は全部無視する。
+    ///
+    /// 呼び出し元は、CheckPoint（チェックポイント）と GoalTrigger（ゴール）。
     /// </summary>
     public class LapCounter : MonoBehaviour
     {
@@ -14,50 +20,86 @@ namespace Tanks.Complete
 
         [Header("ラップ設定")]
         public int maxLaps = 3;        // 最大ラップ数（例：3周でゴール）
-        public int currentLap = 1;    // 現在のラップ数（1から開始）
+        public int currentLap = 1;     // 現在のラップ数（1から開始。ゴール完了後は maxLaps のまま）
 
         [Header("チェックポイント数")]
         public int totalCheckPoints = 5; // コース全体のチェックポイント数
 
-        [Header("Z座標チェック")]
-        public float firstLapEnableZ = 100f; // z >= この値になったら初めてゴール通過を有効にする
+        [Header("（現在は使っていません）")]
+        [Tooltip("以前は「Z座標がこの値になるまで、ゴール通過を無効にする」ために使っていました。\n" +
+            "今は、チェックポイントを順番に全部通らないと周回が増えない作りなので、この値は使いません。\n" +
+            "（既存のシーンの設定値を壊さないよう、項目だけ残してあります）")]
+        public float firstLapEnableZ = 100f;
 
         // --- 内部状態（プライベート） ---
 
-        // 最初の1周目が完了したかどうか
-        // （Z座標が firstLapEnableZ 以上になったら true になる）
-        private bool hasCompletedFirstLap = false;
-
-        // 現在のチェックポイント番号（次に通過すべき番号）
-        // 例：1,2,3...totalCheckPoints → 1（次のラップ）の順で増えていく
-        private int currentCheckPoint = 1;
-
-        // 現在のラップでゴールを通過したかどうか
-        // 1ラップにつき1回だけカウントするために使用
-        private bool hasPassedGoalThisLap = false;
+        // 周回とチェックポイントの数え方（Unityに依存しない部分）
+        private readonly LapProgress m_Progress = new LapProgress();
 
         // --- イベント（外部から購読可能） ---
 
         /// <summary>
-        /// ラップ数が更新されたときに呼ばれるイベント。
+        /// 新しい周に入ったとき（と、リセットしたとき）に呼ばれるイベント。
         /// 引数には新しいラップ数（currentLap）が渡される。
+        /// ゴール完了のときは呼ばれない（代わりに OnFinished が呼ばれる）。
         /// </summary>
         public System.Action<int> OnLapUpdated;
 
-        // --- 毎フレームの処理 ---
+        /// <summary>
+        /// 規定の周回を走り切った（ゴール完了した）ときに、1回だけ呼ばれるイベント。
+        /// 引数にはこの LapCounter が渡される。
+        /// </summary>
+        public System.Action<LapCounter> OnFinished;
 
-        void Update()
+        // --- 外から見える状態 ---
+
+        /// <summary>規定の周回を走り切ったか</summary>
+        public bool IsFinished
         {
-            // Z座標チェック（最初の1周目がまだ完了していない場合）
-            if (!hasCompletedFirstLap)
+            get
             {
-                // プレイヤー（このスクリプトがアタッチされたオブジェクト）のZ座標が
-                // firstLapEnableZ 以上になったら、初周完了とみなす
-                if (transform.position.z >= firstLapEnableZ)
-                {
-                    // z >= 100 になったら「最初の1周目が完了した」とマーク
-                    hasCompletedFirstLap = true;
-                }
+                SyncSettings();
+
+                return m_Progress.IsFinished;
+            }
+        }
+
+        /// <summary>終えた周の数</summary>
+        public int LapsCompleted
+        {
+            get
+            {
+                SyncSettings();
+
+                return m_Progress.LapsCompleted;
+            }
+        }
+
+        /// <summary>
+        /// 進んだ区間の数（チェックポイントとゴールを通るたびに1つ増える）。
+        /// 順位を決めるために使う。大きいほど先に進んでいる。
+        /// </summary>
+        public int ProgressUnits
+        {
+            get
+            {
+                SyncSettings();
+
+                return m_Progress.Units;
+            }
+        }
+
+        /// <summary>
+        /// 次に通るべきチェックポイントの番号（1から）。
+        /// 全部通り終えて次はゴールの時や、ゴール完了後は 0。
+        /// </summary>
+        public int NextCheckPointNumber
+        {
+            get
+            {
+                SyncSettings();
+
+                return m_Progress.NextCheckPoint;
             }
         }
 
@@ -70,31 +112,10 @@ namespace Tanks.Complete
         /// <param name="checkPointNumber">通過したチェックポイント番号</param>
         public void PassCheckPoint(int checkPointNumber)
         {
-            // 最初の1周目がまだ完了していない場合は、ここでは何もしない
-            // （Z座標が firstLapEnableZ に達するまではチェックポイントを無視）
-            if (!hasCompletedFirstLap)
-            {
-                return;
-            }
+            SyncSettings();
 
-            // 順番通りに通過しているかチェック
-            if (checkPointNumber == currentCheckPoint)
-            {
-                // 正しい順番で通過したので、次のチェックポイントに進める
-                currentCheckPoint++;
-
-                // すべてのチェックポイントを通過し終えたかチェック
-                if (currentCheckPoint > totalCheckPoints)
-                {
-                    // 次のラップ用に1にリセット
-                    currentCheckPoint = 1;
-                }
-            }
-            else
-            {
-                // 順番通りでない場合は無視（不正な順序通過や逆走を防ぐ）
-                return;
-            }
+            // 順番通りでない通過（飛ばし・逆走・二重）は、LapProgress が無視する
+            m_Progress.PassCheckPoint(checkPointNumber);
         }
 
         // --- ゴール通過時の処理 ---
@@ -102,37 +123,31 @@ namespace Tanks.Complete
         /// <summary>
         /// ゴールラインを通過したときに呼び出し。
         /// すべてのチェックポイントを順番通りに通過していれば、ラップを進める。
+        /// 規定の周回を走り切った時は、OnFinished を呼ぶ。
         /// </summary>
         public void PassGoal()
         {
-            // 最初の1周目がまだ完了していない場合は無視
-            // （Z座標が firstLapEnableZ に達するまではゴール通過を無効にする）
-            if (!hasCompletedFirstLap) return;
+            SyncSettings();
 
-            // すべてのチェックポイントを通過しているかチェック
-            // currentCheckPoint が 1 = 全チェックポイント通過済みでリセットされた状態
-            if (currentCheckPoint != 1) return;
+            LapProgress.GateResult result = m_Progress.PassGoal();
 
-            // 同じラップで二重にゴールを通過しないようにガード
-            if (hasPassedGoalThisLap) return;
-
-            // ゴール通過済みフラグを立てる（二重通過防止）
-            hasPassedGoalThisLap = true;
-
-            // ラップを進める
-            currentLap++;
-
-            // 最大ラップ数を超えないように制限
-            if (currentLap > maxLaps)
+            // 数えなかった（チェックポイントが足りない・二重・ゴール完了後）なら何もしない
+            if (result == LapProgress.GateResult.Ignored)
             {
-                currentLap = maxLaps;
+                return;
             }
 
-            // 次のラップのためにゴール通過済みフラグをリセット
-            // ※ここが抜けていると2/3→3/3のラップが進まなくなる
-            hasPassedGoalThisLap = false;
+            currentLap = m_Progress.CurrentLap;
 
-            // ラップ更新イベントを発行（UIの更新などに利用）
+            if (result == LapProgress.GateResult.Finished)
+            {
+                // ゴール完了：周回の更新ではなく、完了を知らせる
+                OnFinished?.Invoke(this);
+
+                return;
+            }
+
+            // 次の周に入った：ラップ更新イベントを発行（UIの更新などに利用）
             OnLapUpdated?.Invoke(currentLap);
         }
 
@@ -144,20 +159,29 @@ namespace Tanks.Complete
         /// </summary>
         public void ResetLap()
         {
+            SyncSettings();
+
+            m_Progress.Reset();
+
             // ラップ数を1に戻す
             currentLap = 1;
 
-            // チェックポイントを1に戻す
-            currentCheckPoint = 1;
-
-            // 初周完了フラグを戻す（Z座標チェックからやり直し）
-            hasCompletedFirstLap = false;
-
-            // 現在のラップでゴール通過済みフラグを戻す
-            hasPassedGoalThisLap = false;
-
             // ラップ更新イベントを発行（UIを1周目表示に戻すなど）
             OnLapUpdated?.Invoke(currentLap);
+        }
+
+        // --- 内部処理 ---
+
+        /// <summary>
+        /// インスペクタや他のスクリプトが変えた設定（maxLaps・totalCheckPoints）を、
+        /// 数え方（LapProgress）に反映する。
+        /// 外から currentLap が書き換えられていても、数え方の側を正とする。
+        /// </summary>
+        private void SyncSettings()
+        {
+            m_Progress.Configure(maxLaps, totalCheckPoints);
+
+            currentLap = m_Progress.CurrentLap;
         }
     }
 }
