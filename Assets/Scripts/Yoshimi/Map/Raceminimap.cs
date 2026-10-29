@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,6 +19,8 @@ namespace Tanks.Complete
     // 　 Excluded Names（名前）や Excluded Roots（ドラッグ）で指定できる
     // ・シーン内の車（CarMovement）を探して、アイコンを表示する
     // ・カメラが追っている車（自分の車）は大きく強調する
+    // 　（画面分割の複数人プレイでは強調をOFFにして、全員を同じ大きさにし、
+    // 　 代わりにアイコンの中にプレイヤー番号を出せる）
     // ・GoalTriggerの位置にスタート／ゴールの目印を出す
     // 　（トリガーの中心がコースの端や外側にズレていても、道路の幅の
     // 　 真ん中に寄せるので、目印は必ずコースの上に出る）
@@ -228,6 +231,15 @@ namespace Tanks.Complete
         [Tooltip("自分の車（強調表示する車）。空ならRaceCameraFollowが追っている車を自動で使う")]
         public Transform m_FocusTarget;
 
+        [Tooltip("自分の車だけを、大きく・目立つ縁で強調する。" +
+                 "OFFにすると、全員のアイコンを同じ大きさ・同じ縁にする" +
+                 "（画面分割の複数人プレイでは、自分の車が人によって違うのでOFFにする）")]
+        public bool m_HighlightFocus = true;
+
+        [Tooltip("アイコンの中に、プレイヤー番号（1〜4）を出す。" +
+                 "車が2台以上ある時だけ出る。番号は CarMovement の Player Number を使う")]
+        public bool m_ShowPlayerNumber = false;
+
         [Tooltip("GoalTriggerの位置にスタート／ゴールの目印を出す")]
         public bool m_ShowStartMarker = true;
 
@@ -259,6 +271,7 @@ namespace Tanks.Complete
             public Image Body;           // 車の色の丸
             public Image Ring;           // 縁取り
             public Image Arrow;          // 進行方向の三角
+            public TextMeshProUGUI Label; // プレイヤー番号（番号が無い対象は null）
             public bool IsFocus;         // 自分の車として強調中か
         }
 
@@ -506,6 +519,36 @@ namespace Tanks.Complete
 
             // 次のLateUpdateですぐ反映させる
             m_NextRefreshTime = 0f;
+        }
+
+        /// <summary>
+        /// 車のアイコンを全部作り直す。
+        /// 車の色を変えた直後や、アイコンの設定（強調する／プレイヤー番号を出す）を
+        /// 切り替えた直後に呼ぶ。色は、アイコンを作る時にしか読まないため。
+        /// </summary>
+        public void RefreshIcons()
+        {
+            // 今あるアイコンを全部消す
+            for (int i = m_Markers.Count - 1; i >= 0; i--)
+            {
+                if (m_Markers[i].Root != null)
+                {
+                    Destroy(m_Markers[i].Root.gameObject);
+                }
+            }
+
+            m_Markers.Clear();
+
+            // 次のLateUpdateで作り直す
+            m_NextRefreshTime = 0f;
+
+            // コース画像ができている時は、すぐ作り直す
+            // （まだの時は、コース画像ができた時に作られる）
+            if (m_Ready)
+            {
+                SyncMarkers();
+                UpdateMarkers();
+            }
         }
 
         /// <summary>
@@ -2211,8 +2254,9 @@ namespace Tanks.Complete
         /// </summary>
         /// <param name="target">アイコンで追いかける対象（車）の Transform</param>
         /// <param name="color">アイコンの色（車の色）</param>
+        /// <param name="playerNumber">プレイヤー番号。1以上ならアイコンの中に番号を出せる（0は番号なし）</param>
         /// <returns>作ったアイコン</returns>
-        private Marker AddMarker(Transform target, Color color)
+        private Marker AddMarker(Transform target, Color color, int playerNumber = 0)
         {
             // 元の色が半透明でも、アイコンは不透明にして、はっきり見せる
             color.a = 1f;
@@ -2231,6 +2275,12 @@ namespace Tanks.Complete
 
             marker.Ring =
                 CreateImage("Ring", marker.Root, MinimapSprites.Ring, Color.white);
+
+            // プレイヤー番号の文字（一番手前）。表示するかどうかは SyncMarkers が決める
+            if (playerNumber > 0)
+            {
+                marker.Label = CreateNumberLabel(marker.Root, playerNumber);
+            }
 
             // 丸（Body）と縁（Ring）は、Root いっぱいに広げる（大きさは Root で決まる）。
             // 三角（Arrow）の大きさは、ApplyMarkerStyle で決める
@@ -2274,6 +2324,12 @@ namespace Tanks.Complete
 
             marker.Arrow.rectTransform.sizeDelta =
                 new Vector2(size * 1.8f, size * 1.8f);
+
+            // プレイヤー番号の文字は、アイコンの大きさに合わせる
+            if (marker.Label != null)
+            {
+                marker.Label.fontSize = size * 0.72f;
+            }
 
             // 自分の車は一番手前に描く
             if (isFocus)
@@ -2323,12 +2379,14 @@ namespace Tanks.Complete
                 // 予備の色を選ぶのに使う）
                 AddMarker(
                     cars[i].transform,
-                    ResolveCarColor(cars[i].transform, m_Markers.Count)
+                    ResolveCarColor(cars[i].transform, m_Markers.Count),
+                    cars[i].m_PlayerNumber
                 );
             }
 
             // 自分の車を決めて、強調表示を合わせる
-            Transform focus = ResolveFocus(cars);
+            // （強調しない設定の時は、決めない＝全員を同じ見た目にする）
+            Transform focus = m_HighlightFocus ? ResolveFocus(cars) : null;
 
             Marker focusMarker = null;  // 自分の車のアイコン（無ければ null）
 
@@ -2353,6 +2411,20 @@ namespace Tanks.Complete
                 if (m_Markers[i].IsFocus != isFocus)
                 {
                     ApplyMarkerStyle(m_Markers[i], isFocus);
+                }
+            }
+
+            // プレイヤー番号は、車が2台以上ある時だけ出す（1台だけなら番号は要らない）
+            bool showNumbers = m_ShowPlayerNumber && m_Markers.Count > 1;
+
+            for (int i = 0; i < m_Markers.Count; i++)
+            {
+                Marker marker = m_Markers[i];
+
+                if (marker.Label != null &&
+                    marker.Label.gameObject.activeSelf != showNumbers)
+                {
+                    marker.Label.gameObject.SetActive(showNumbers);
                 }
             }
         }
@@ -2570,6 +2642,43 @@ namespace Tanks.Complete
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>
+        /// アイコンの中に出す、プレイヤー番号の文字を作る。
+        /// 白い太字に黒の縁を付けて、どの車の色の上でも読めるようにする。
+        /// 大きさは ApplyMarkerStyle が決める。
+        /// </summary>
+        /// <param name="parent">アイコンの親（Root）</param>
+        /// <param name="number">プレイヤー番号</param>
+        /// <returns>作った文字</returns>
+        private static TextMeshProUGUI CreateNumberLabel(RectTransform parent, int number)
+        {
+            RectTransform rect = CreateRect("Number", parent);
+
+            Stretch(rect);
+
+            TextMeshProUGUI label = rect.gameObject.AddComponent<TextMeshProUGUI>();
+
+            label.text = number.ToString();
+            label.alignment = TextAlignmentOptions.Center;
+            label.fontStyle = FontStyles.Bold;
+            label.color = Color.white;
+
+            // 1文字なので、折り返さず、はみ出しても切らない
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Overflow;
+
+            // 白い文字に黒い縁
+            label.outlineWidth = 0.3f;
+            label.outlineColor = new Color32(0, 0, 0, 255);
+
+            label.raycastTarget = false;  // クリックを受け付けない
+
+            // 表示するかどうかは SyncMarkers が決める
+            rect.gameObject.SetActive(false);
+
+            return label;
         }
     }
 }

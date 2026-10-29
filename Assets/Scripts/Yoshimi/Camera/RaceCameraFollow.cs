@@ -84,6 +84,13 @@ namespace Tanks.Complete
         [Tooltip("このキーでカメラを反転（後方確認）できます（ゲームパッドはX/Yボタンで固定対応）")]
         public KeyCode m_ReverseKey = KeyCode.C;
 
+        [Tooltip("ONなら、上のキー（Cキー）でも反転できます。\n" +
+            "分割画面（2人以上）では、全員のカメラが同時に反転してしまうのでOFFにします\n" +
+            "（RaceSplitScreenCameraManager が人数に応じて自動で切り替えます）。\n" +
+            "OFFの間も、各プレイヤーの後方確認ボタン（WASD＝C／矢印キー＝右Ctrl／" +
+            "ゲームパッド＝X・Y）は、その人のカメラだけを反転します")]
+        public bool m_UseReverseKey = true;
+
         [Tooltip("ON：キーを押している間だけ反転／OFF：押すたびに反転⇔通常を切り替え（トグル式）")]
         public bool m_HoldToReverse = false;
 
@@ -201,16 +208,20 @@ namespace Tanks.Complete
             // =================================================
             // 反転（バックビュー）入力判定
             // =================================================
-            // ゲームパッド側（対象自身のInputReaderのX/Yボタン）の状態
+            // 対象自身のInputReaderの後方確認ボタン（ゲームパッドのX/Y・WASDのC・矢印キーの右Ctrl）の状態
             bool gamepadReverseHeld    = m_TargetInputReader != null && m_TargetInputReader.LookBackHeld;
             bool gamepadReversePressed = m_TargetInputReader != null && m_TargetInputReader.LookBackPressed;
+
+            // キー（Cキーなど）の状態。OFFの時は、押されていないものとして扱う
+            bool keyReverseHeld    = m_UseReverseKey && Input.GetKey(m_ReverseKey);
+            bool keyReversePressed = m_UseReverseKey && Input.GetKeyDown(m_ReverseKey);
 
             if (m_HoldToReverse)
             {
                 // 押している間だけ反転（キーボード／ゲームパッドどちらでも反応）
-                m_IsReversed = Input.GetKey(m_ReverseKey) || gamepadReverseHeld;
+                m_IsReversed = keyReverseHeld || gamepadReverseHeld;
             }
-            else if (Input.GetKeyDown(m_ReverseKey) || gamepadReversePressed)
+            else if (keyReversePressed || gamepadReversePressed)
             {
                 // 押すたびに反転⇔通常を切り替え（キーボード／ゲームパッドどちらでも反応）
                 m_IsReversed = !m_IsReversed;

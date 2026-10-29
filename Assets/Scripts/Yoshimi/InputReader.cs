@@ -37,6 +37,22 @@ namespace Tanks.Complete
 
 
         // =====================================================
+        // ■ 入力のロック
+        // =====================================================
+
+        /// <summary>
+        /// true の間は、どの装置の入力も読まず、全部ニュートラル（0／押していない）にする。
+        /// レースでゴールした後など、操作だけ止めたい時に使う。
+        /// （ControlIndex を無効な番号にする方法と違って、警告が毎フレーム出ない）
+        /// </summary>
+        public bool InputLocked
+        {
+            get;
+            set;
+        }
+
+
+        // =====================================================
         // ■ 入力値
         // =====================================================
 
@@ -133,7 +149,7 @@ namespace Tanks.Complete
 
         /// <summary>
         /// ドリフトボタンを押している間
-        /// （WASD＝左Shift／ゲームパッド＝Rボタン（右肩ボタン））
+        /// （WASD＝左Shift／矢印キー＝右Shift／ゲームパッド＝Rボタン（右肩ボタン））
         /// </summary>
         public bool DriftHeld
         {
@@ -142,7 +158,8 @@ namespace Tanks.Complete
         }
 
         /// <summary>
-        /// 後方確認ボタンを押している間（ゲームパッドのみ。X or Yボタン）
+        /// 後方確認ボタンを押している間
+        /// （ゲームパッド＝X or Yボタン／WASD＝Cキー／矢印キー＝右Ctrl）
         /// </summary>
         public bool LookBackHeld
         {
@@ -151,7 +168,8 @@ namespace Tanks.Complete
         }
 
         /// <summary>
-        /// 後方確認ボタンを押した瞬間（ゲームパッドのみ。X or Yボタン）
+        /// 後方確認ボタンを押した瞬間
+        /// （ゲームパッド＝X or Yボタン／WASD＝Cキー／矢印キー＝右Ctrl）
         /// </summary>
         public bool LookBackPressed
         {
@@ -184,6 +202,16 @@ namespace Tanks.Complete
             DriftHeld       = false;
             LookBackHeld    = false;
             LookBackPressed = false;
+
+
+            // =================================================
+            // ■ ロック中（ゴール後など）は、何も読まずニュートラルのまま
+            // =================================================
+
+            if (InputLocked)
+            {
+                return;
+            }
 
 
             // =================================================
@@ -272,6 +300,10 @@ namespace Tanks.Complete
 
             // ドリフトは左Shift
             DriftHeld = Keyboard.current.leftShiftKey.isPressed;
+
+            // 後方確認はCキー
+            LookBackHeld    = Keyboard.current.cKey.isPressed;
+            LookBackPressed = Keyboard.current.cKey.wasPressedThisFrame;
         }
 
 
@@ -297,6 +329,17 @@ namespace Tanks.Complete
             FirePressed  = Keyboard.current.enterKey.wasPressedThisFrame;
             FireReleased = Keyboard.current.enterKey.wasReleasedThisFrame;
             FireHeld     = Keyboard.current.enterKey.isPressed;
+
+            // レースモード用：ハンドル/アクセル/ブレーキはMoveInputをそのまま流用
+            // （これが無かったため、矢印キーでは車が動かなかった）
+            CarMoveInput = MoveInput;
+
+            // ドリフトは右Shift
+            DriftHeld = Keyboard.current.rightShiftKey.isPressed;
+
+            // 後方確認は右Ctrl
+            LookBackHeld    = Keyboard.current.rightCtrlKey.isPressed;
+            LookBackPressed = Keyboard.current.rightCtrlKey.wasPressedThisFrame;
         }
 
 
@@ -382,6 +425,7 @@ namespace Tanks.Complete
             float wasdX = 0f, wasdY = 0f;
             bool wasdFirePressed = false, wasdFireHeld = false, wasdFireReleased = false;
             bool wasdDrift = false;
+            bool wasdLookBackHeld = false, wasdLookBackPressed = false;
 
             if (Keyboard.current != null)
             {
@@ -395,11 +439,16 @@ namespace Tanks.Complete
                 wasdFireHeld     = Keyboard.current.spaceKey.isPressed;
 
                 wasdDrift = Keyboard.current.leftShiftKey.isPressed;
+
+                wasdLookBackHeld    = Keyboard.current.cKey.isPressed;
+                wasdLookBackPressed = Keyboard.current.cKey.wasPressedThisFrame;
             }
 
             // ── 矢印キー分 ──────────────────────────────────
             float arrowX = 0f, arrowY = 0f;
             bool arrowFirePressed = false, arrowFireHeld = false, arrowFireReleased = false;
+            bool arrowDrift = false;
+            bool arrowLookBackHeld = false, arrowLookBackPressed = false;
 
             if (Keyboard.current != null)
             {
@@ -411,6 +460,10 @@ namespace Tanks.Complete
                 arrowFirePressed  = Keyboard.current.enterKey.wasPressedThisFrame;
                 arrowFireReleased = Keyboard.current.enterKey.wasReleasedThisFrame;
                 arrowFireHeld     = Keyboard.current.enterKey.isPressed;
+
+                arrowDrift           = Keyboard.current.rightShiftKey.isPressed;
+                arrowLookBackHeld    = Keyboard.current.rightCtrlKey.isPressed;
+                arrowLookBackPressed = Keyboard.current.rightCtrlKey.wasPressedThisFrame;
             }
 
             // ── ゲームパッド分（1台目のみ） ───────────────────
@@ -472,9 +525,9 @@ namespace Tanks.Complete
             // ゲームパッドだけY軸をボタン式にする点はReadGamepadInputと同じ）
             CarMoveInput = new Vector2(mergedX + padMove.x, mergedY + padCarY);
 
-            DriftHeld       = wasdDrift || padDrift;
-            LookBackHeld    = padLookBackHeld;
-            LookBackPressed = padLookBackPressed;
+            DriftHeld       = wasdDrift || arrowDrift || padDrift;
+            LookBackHeld    = padLookBackHeld    || wasdLookBackHeld    || arrowLookBackHeld;
+            LookBackPressed = padLookBackPressed || wasdLookBackPressed || arrowLookBackPressed;
         }
     }
-}
+}
